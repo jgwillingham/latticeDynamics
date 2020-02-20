@@ -401,7 +401,7 @@ class Coulomb:
         _C : numpy matrix
              Full block Coulomb matrix at wavevector q
         """
-        
+
         q = np.array(q)
         n = self.lattice.atomsPerUnitCell
         blocks = []
@@ -418,11 +418,16 @@ class Coulomb:
                 Cnear_ij = self._realSpaceSum(Delta, q)
                 C_ij = Cfar_ij + Cnear_ij
                 
-                C_ij = C_ij * np.exp(-1j * q @ Delta) #<- why minus sign? Seems to only work when it's there
                 blocks[i].append( C_ij )
                 if i == j:
                     blocks[i][j] += self._Cself(i)
-                   
+                    
+                if la.norm(q) != 0:
+                    norm = la.norm(q)
+                    G0_term = np.outer(q, q) / norm**2
+                    G0_term = G0_term * np.exp(- norm**2/(4*self.eta**2))
+                    blocks[i][j] += (4*np.pi/self.lattice.volume) * G0_term
+  
         _C = np.matrix(np.block( blocks ))
 
         return _C
@@ -489,12 +494,12 @@ class Coulomb:
         for G in QGList:
             norm = la.norm(G)
             term = np.outer(G, G) / norm**2
-            term = term * np.exp(1j * G @ Delta)
+            term = term * np.exp(-1j * G @ Delta) 
             term = term * np.exp(-norm**2 / (4*self.eta**2))
             Cfar_ij += term
         
         Cfar_ij = Cfar_ij * (4*np.pi / self.lattice.volume)
-        #Cfar_ij = Cfar_ij * np.exp(- 1j * q @ Delta) <- moved to C method
+        Cfar_ij = Cfar_ij * np.exp(1j * q @ Delta) 
         
         return Cfar_ij
     
@@ -519,7 +524,7 @@ class Coulomb:
                   2D array containing the direct lattice sum
         """
         Cnear_ij = np.zeros([3,3] , dtype='complex128')
-        DeltaRList = [R-Delta for R in self.RList]
+        DeltaRList = [R+Delta for R in self.RList]
         
         for dR in DeltaRList:
             norm = la.norm(dR)
@@ -529,10 +534,10 @@ class Coulomb:
             t2 = np.eye(3) / norm**3
             t2 = t2 * ( erfc(y) + 2*y * np.exp(-y**2) / np.sqrt(np.pi) )
             term = t1 - t2
-            term = term * np.exp(1j * q @ (dR + Delta))
+            term = term * np.exp(1j * q @ (dR - Delta))
             Cnear_ij += term
         
-        #Cnear_ij = -1* Cnear_ij * np.exp(-1j * q @ Delta)
+        Cnear_ij = Cnear_ij * np.exp(1j * q @ Delta)
         
         return -1*Cnear_ij
         
@@ -564,15 +569,15 @@ class Coulomb:
         Vec = lambda n1,n2,n3 : n1*v1 + n2*v2 + n3*v3
         sumRange = range(-sumDepth, sumDepth+1)
         List = []
-        
+                    
         for n1 in sumRange:
             for n2 in sumRange:
                 for n3 in sumRange:
                     if n1==n2==n3==0:
                         pass
                     else:
-                        Vector = Vec(n1, n2, n3)
-                        List.append(Vector)
+                        vector = Vec(n1, n2, n3)
+                        List.append(vector)
         return List
         
 
@@ -747,10 +752,10 @@ class Model:
                 if showProgress: print('\nCoulomb matrices stored')
                 
             M = self.M
-            self.withCoulomb = False
+            self.withCoulomb = False # temporarily set withCOulomb to False
             DList = [self.D(q) + M @ self.storedCoulomb[str(q)] @ M 
                                              for q in qPath]
-            self.withCoulomb=True
+            self.withCoulomb=True # reset withCoulomb to True
         else:
             DList = [ self.D(q) for q in qPath ]
         dispersion = []
@@ -903,8 +908,9 @@ class Model:
 # 
 # =============================================================================
 
+
+
 # =============================================================================
-# 
 # a = 6.60 # lattice constant in Angstroms
 #         # Xu et al: 6.60
 #         # Experimental 6.48
@@ -918,9 +924,9 @@ class Model:
 # 
 # latticeVectors = [a*np.array(ai) for ai in [a1, a2, a3]]
 # unitCell = ( 
-#              ("Cd" ,  np.array(Cd_position)   ) , 
-#              ( "Te" , np.array(Te_position)   ) 
-#            )
+#               ("Cd" ,  np.array(Cd_position)   ) , 
+#               ( "Te" , np.array(Te_position)   ) 
+#             )
 # charges = [charge, -charge]
 # 
 # G = 2*np.pi/a
@@ -932,35 +938,43 @@ class Model:
 # K = (3*G/4, 3*G/4, 0)
 # 
 # # NN interactions (Cd-Te)
-# Ann = -27 ## -25 <- tuning this seems to push the high optical modes around
+# Ann = -29 ## -25 <- tuning this seems to push the high optical modes around
 # Bnn = -0.2 # -0.2 <- moves acoustic modes
 # # NNN interactions (Cd-Cd or Te-Te)
 # Cd_Annn = -2.9 # -2.9
-# Cd_Bnnn = -1.2 # -0.2
+# Cd_Bnnn = -0.2 # -0.2
 # Te_Annn = -4.2 # -4.2
-# Te_Bnnn = -1.1 # -0.1
+# Te_Bnnn = -0.1 # -0.1
 # 
 # 
 # couplings = [ [(Cd_Annn,Cd_Bnnn), (Ann, Bnn)], 
 #               [(Ann, Bnn), (Te_Annn, Te_Bnnn)] 
 #             ]
 # 
-# =============================================================================
-#%%
-
-
-# =============================================================================
+# 
+# 
 # 
 # lattice = Lattice(unitCell, latticeVectors)        
-# model = Model(lattice, couplings, threshold=5, coulomb=False, charges=charges)
-# 
-# qMarkers = [Gamma, X, W, K, Gamma, L]
-# qLabels = ['$\Gamma$', 'X', 'W', 'K', '$\Gamma$' , 'L']
+# model = Model(lattice, 
+#               couplings, 
+#               threshold=5, 
+#               coulomb=True, 
+#               charges=charges,
+#               GSumDepth=5,
+#               RSumDepth=5,
+#               eta=3.75*lattice.volume**(-1/3))
+# model.rigidIon.couplings = couplings
+# qMarkers = [Gamma, X, W, K, Gamma, L, U, W, L]
+# qLabels = ['$\Gamma$', 'X', 'W', 'K','$\Gamma$', 'L', 'U', 'W', 'L']
 # dispersion, normalModes, qPath, qPathParts = model.getDispersion(qMarkers, 
-#                                                                  20,
-#                                                                  True)
-# 
+#                                                                   20,
+#                                                                   True,
+#                                                                   showProgress=True,
+#                                                                   keepCoulomb=True)                                                                  
+# model.plotDispersion(labels=qLabels)
 # =============================================================================
+
+
 
 
 # %%
