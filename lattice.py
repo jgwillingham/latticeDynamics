@@ -188,6 +188,7 @@ class Slab:
         self.numCells = numCells
         self.hkl = self._handleMillerIndices(surface)
         self.surfaceNormal, self.a_normal = self._getNormalVectors()
+        self.meshBasis = self._getMeshBasis()
     
     
     def _getNormalVectors(self):
@@ -237,6 +238,7 @@ class Slab:
     def _getLatticePlanes(self):
         """
         Looks for non-similar lattice planes in the given direction.
+        
         Projects all atom positions in the unit cell onto the surface normal
         along with all lattice vectors looking for distinct projections.
         
@@ -248,13 +250,13 @@ class Slab:
         for atom in self.lattice.atoms:
             r_inplane, r_normal = self.projectVector(atom.coords_cartesian)
             projections.append((r_inplane, r_normal))
-            r_normal = tuple(np.round(r_normal, 9)) # chops near 0 values
+            r_normal = tuple(np.round(r_normal, 9)) # chops near 0 values and makes hashable
             distinct_planes.add(r_normal)
             
         for latvec in self.lattice.lattice_vectors:
             R_inplane, R_normal = self.projectVector(latvec)
             projections.append((R_inplane, R_normal))
-            R_normal = tuple(np.round(R_normal, 9)) # chops near 0 values
+            R_normal = tuple(np.round(R_normal, 9)) # chops near 0 values and makes hashable
             distinct_planes.add(R_normal)
             
         return projections, list(distinct_planes)
@@ -262,37 +264,60 @@ class Slab:
     
             
         
-    def _getPlaneBasis(self, projection, searchWidth=1):
+    def _getMeshBasis(self, searchWidth=1):
         """
-        First attempt at algorithm for finding a primitive lattice plane basis.
-        Need to check more cases
+        Get a 2D basis for the lattice planes (meshes) in the desired direction.
+        
+        NOTE: lattice object must have primitive unit cell
+        NOTE: a given plane may have all atoms displaced by some amount from
+        the returned basis vectors.
+        
+        Idea of Algorithm
+        -------
+        Since any two atomic positions in a Bravais lattice are connected
+        by a lattice vector, the 2D basis must consist of lattice vectors 
+        which are parallel to the plane. The algorithm here finds the 
+        shortest lattice vectors parallel to the correct plane.
+        
+        Algorithm:
+            - Loop over lattice vectors near the origin
+            --- For each latice vector, Rl, check if it is parallel to the plane: 
+                    i.e.  abs( Rl @ n ) == 0
+            --- If it is parallel and non-zero, append Rl to a list
+            - Order list of lattice vectors by length (shortest to longest)
+            - Put shortest lattice vector in basis list
+            - Then loop through the ordered list
+            --- Check if lattice vector is non-parallel to vector in basis list.
+                i.e. angle is not Pi or 0 
+            --- If non-parallel, append it to basis list and break loop
+            - Return basis list
         """        
         searchRange = range(-searchWidth, searchWidth+1)
         (a1, a2, a3) = self.lattice.lattice_vectors
-        planarAtoms = [] # list of nearby atom positions that are in the same plane
-        atomPosition = projection[0] + projection[1]
+        n = self.surfaceNormal
         
-        # get a list of coplanar atom positions
+        coplanars = [] # list of coplanar vectors
         for n1 in searchRange:
             for n2 in searchRange:
                 for n3 in searchRange:
                     Rl = n1*a1 + n2*a2 + n3*a3
-                    nomineePosition = atomPosition + Rl
-                    r_inplane, r_normal = self.projectVector(nomineePosition)
-                    if all(r_normal == projection[1]) and la.norm(r_inplane)!=0:
-                        planarAtoms.append(r_inplane)
+                    if abs(Rl @ n) <10**-10 and not n1==n2==n3==0:
+                        coplanars.append(Rl)
+
+        # function that gets angle between two vectors
+        angle = lambda v1, v2: np.arccos((v1@v2)/(la.norm(v1)*la.norm(v2)))
+        # order of indices for shortest to longest lattice vectors
+        lengthOrder = np.argsort([la.norm(vector) 
+                                   for vector in coplanars])
+        # add shortest lattice vector to basis
+        plane_basis = [ coplanars[lengthOrder[0]] ]
         
-        angle = lambda v1, v2: np.arccos((v1@v2)/(la.norm(v1)*la.norm(v2))) # gets angle between two vectors
-        vectorLengths = [la.norm(vector) for vector in planarAtoms]
-        nearest_inx = np.argsort(vectorLengths) # list of indices for planarAtoms in order of closest to farthest
-        plane_basis = [ planarAtoms[nearest_inx[0]] ]
-        
-        for i in nearest_inx:
-            vector = planarAtoms[i]
-            if all([angle(vector, basisVector)% np.pi > 10**-5 
-                            for basisVector in plane_basis]): # check if vector is not parallel to other basis vector
+        for i in lengthOrder:
+            vector = coplanars[i]
+            if angle(vector, plane_basis[0])% np.pi > 10**-5: # check if vector is non-parallel to other basis vector
                 plane_basis.append(vector)
                 break
+        plane_basis = np.round(plane_basis, 10)
         
         return plane_basis
             
@@ -321,12 +346,12 @@ unitCell = [('Cd', np.array((0, 0, 0))),
 a = 6.6
 latvecs = [a*np.array(v) for v in latvecs]
 lattice = Lattice(unitCell, latvecs)
-slab = Slab(lattice, '101', 1)    
+slab = Slab(lattice, '211', 1)    
+
 projections, planes = slab._getLatticePlanes()    
-basis = slab._getPlaneBasis(projections[2])
-print(slab.a_normal)
-print(planes)
-print(basis)
+print('Surface Normal:\n',slab.a_normal)
+print('Distinct Planes:\n', planes)
+print('2D Basis:\n', slab.meshBasis)
 
 
 
