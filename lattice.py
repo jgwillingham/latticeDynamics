@@ -197,7 +197,6 @@ class Slab:
         G_hkl = h*b1 + l*b2 + k*b3
         surfaceNormal = G_hkl / la.norm(G_hkl) 
         # this^ is the unit vector in direction normal to surface
-        
         spatialPeriod = (2*np.pi) / la.norm(G_hkl) # like T = 2 pi/w
         self.d_hkl = spatialPeriod
         # this^ is the distance between hkl lattice planes
@@ -243,18 +242,62 @@ class Slab:
         
         """
         
-        distinct_planes = set()
+        distinct_planes = set() # use a set so all elements are distinct
+        projections = []
         
         for atom in self.lattice.atoms:
             r_inplane, r_normal = self.projectVector(atom.coords_cartesian)
-            r_normal = tuple(np.round(r_normal, 9))
+            projections.append((r_inplane, r_normal))
+            r_normal = tuple(np.round(r_normal, 9)) # chops near 0 values
             distinct_planes.add(r_normal)
+            
         for latvec in self.lattice.lattice_vectors:
-            R_inplane, R_normal = self.projectVector(atom.coords_cartesian)
-            R_normal = tuple(np.round(R_normal, 9))
+            R_inplane, R_normal = self.projectVector(latvec)
+            projections.append((R_inplane, R_normal))
+            R_normal = tuple(np.round(R_normal, 9)) # chops near 0 values
             distinct_planes.add(R_normal)
+            
+        return projections, list(distinct_planes)
+    
+    
+            
         
-        return list(distinct_planes)
+    def _getPlaneBasis(self, projection, searchWidth=1):
+        """
+        First attempt at algorithm for finding a primitive lattice plane basis.
+        Need to check more cases
+        """        
+        searchRange = range(-searchWidth, searchWidth+1)
+        (a1, a2, a3) = self.lattice.lattice_vectors
+        planarAtoms = [] # list of nearby atom positions that are in the same plane
+        atomPosition = projection[0] + projection[1]
+        
+        # get a list of coplanar atom positions
+        for n1 in searchRange:
+            for n2 in searchRange:
+                for n3 in searchRange:
+                    Rl = n1*a1 + n2*a2 + n3*a3
+                    nomineePosition = atomPosition + Rl
+                    r_inplane, r_normal = self.projectVector(nomineePosition)
+                    if all(r_normal == projection[1]) and la.norm(r_inplane)!=0:
+                        planarAtoms.append(r_inplane)
+        
+        angle = lambda v1, v2: np.arccos((v1@v2)/(la.norm(v1)*la.norm(v2))) # gets angle between two vectors
+        vectorLengths = [la.norm(vector) for vector in planarAtoms]
+        nearest_inx = np.argsort(vectorLengths) # list of indices for planarAtoms in order of closest to farthest
+        plane_basis = [ planarAtoms[nearest_inx[0]] ]
+        
+        for i in nearest_inx:
+            vector = planarAtoms[i]
+            if all([angle(vector, basisVector)% np.pi > 10**-5 
+                            for basisVector in plane_basis]): # check if vector is not parallel to other basis vector
+                plane_basis.append(vector)
+                break
+        
+        return plane_basis
+            
+            
+     
     
             
         
@@ -278,10 +321,13 @@ unitCell = [('Cd', np.array((0, 0, 0))),
 a = 6.6
 latvecs = [a*np.array(v) for v in latvecs]
 lattice = Lattice(unitCell, latvecs)
-slab = Slab(lattice, '111', 1)    
-planes = slab._getLatticePlanes()    
+slab = Slab(lattice, '101', 1)    
+projections, planes = slab._getLatticePlanes()    
+basis = slab._getPlaneBasis(projections[2])
 print(slab.a_normal)
 print(planes)
+print(basis)
+
 
 
 
