@@ -167,3 +167,124 @@ class Lattice(Crystal):
         ax.set_axis_off()
         ax.legend()
         plt.show()
+        
+        
+        
+# %%
+        
+        
+class Slab:
+    """
+    For slab calculations. Right now just cubic lattices.
+    """
+    
+    def __init__(self, 
+                 lattice, 
+                 surface, 
+                 numCells):
+        self.lattice = lattice
+        self.bulkUnitCell = lattice._unitCell
+        self.surface = surface
+        self.numCells = numCells
+        self.hkl = self._handleMillerIndices(surface)
+        self.surfaceNormal, self.a_normal = self._getNormalVectors()
+    
+    
+    def _getNormalVectors(self):
+        
+        (h,k,l) = self.hkl
+        (b1, b2, b3) = self.lattice.reciprocal_vectors
+        G_hkl = h*b1 + l*b2 + k*b3
+        surfaceNormal = G_hkl / la.norm(G_hkl) 
+        # this^ is the unit vector in direction normal to surface
+        
+        spatialPeriod = (2*np.pi) / la.norm(G_hkl) # like T = 2 pi/w
+        self.d_hkl = spatialPeriod
+        # this^ is the distance between hkl lattice planes
+        a_normal = (spatialPeriod)*surfaceNormal
+        # this^ is the vector connecting lattice planes
+        
+        return surfaceNormal, a_normal
+    
+    
+    def projectVector(self, latticeVector):
+        
+        R = latticeVector
+        n = self.surfaceNormal
+        R_normal = (R @ n)*n # projects latticeVector onto surface normal
+        R_inplane = R - R_normal # remaining component parallel to surface
+        
+        components = [np.round(comp, 9) for comp in [R_inplane, R_normal]]
+        
+        return components
+    
+    
+    def _handleMillerIndices(self, miller_indices):
+                
+        hkl = []
+        sign = 1
+        for char in miller_indices:
+            if char == '-':
+                sign = -1
+            else:
+                inx = int(char)
+                hkl.append(sign*inx)
+                sign = 1
+    
+        return hkl
+            
+            
+    
+    def _getLatticePlanes(self):
+        """
+        Looks for non-similar lattice planes in the given direction.
+        Projects all atom positions in the unit cell onto the surface normal
+        along with all lattice vectors looking for distinct projections.
+        
+        """
+        
+        distinct_planes = set()
+        
+        for atom in self.lattice.atoms:
+            r_inplane, r_normal = self.projectVector(atom.coords_cartesian)
+            r_normal = tuple(np.round(r_normal, 9))
+            distinct_planes.add(r_normal)
+        for latvec in self.lattice.lattice_vectors:
+            R_inplane, R_normal = self.projectVector(atom.coords_cartesian)
+            R_normal = tuple(np.round(R_normal, 9))
+            distinct_planes.add(R_normal)
+        
+        return list(distinct_planes)
+    
+            
+        
+# %%
+        
+# =============================================================================
+# unitCell = [('Cd', np.array((0, 0, 0))),
+#             ('Te', np.array((1/4, 1/4, 1/4))),
+#             ('Cd', np.array((0, 1/2, 1/2))),
+#             ('Cd', np.array((1/2, 0, 1/2))),
+#             ('Cd' , np.array((1/2, 1/2, 0))),
+#             ('Te', np.array((3/4, 3/4, 1/4))),
+#             ('Te', np.array((1/4, 3/4, 3/4))),
+#             ('Te' , np.array((3/4, 1/4, 3/4)))]
+# latvecs = [(1, 0, 0) , (0, 1, 0), (0,0,1)]
+# =============================================================================
+latvecs = [(1/2, 1/2, 0) , (1/2, 0, 1/2) , (0, 1/2, 1/2)]
+#latvecs = [(1, 0, 0) , (0, 1, 0), (0,0,1)]
+unitCell = [('Cd', np.array((0, 0, 0))),
+          ('Te', np.array((1/4, 1/4, 1/4)))]
+a = 6.6
+latvecs = [a*np.array(v) for v in latvecs]
+lattice = Lattice(unitCell, latvecs)
+slab = Slab(lattice, '111', 1)    
+planes = slab._getLatticePlanes()    
+print(slab.a_normal)
+print(planes)
+
+
+
+
+
+

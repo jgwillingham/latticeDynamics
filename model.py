@@ -169,7 +169,7 @@ class Model:
             self.withCoulomb = False # temporarily set withCoulomb to False
             DList = [self.D(q) + M @ self.storedCoulomb[str(q)] @ M 
                                              for q in qPath]
-            self.withCoulomb=True # reset withCoulomb to True
+            self.withCoulomb = True # reset withCoulomb to True
         else:
             DList = [ self.D(q) for q in qPath ]
             
@@ -292,7 +292,7 @@ class Model:
                   'mathtext.fontset' : 'stix',
                   'mathtext.rm'      : 'serif',
                   'font.family'      : 'serif',
-                  'font.serif'       : "Times New Roman"# or "Times"          
+                  'font.serif'       : "Times New Roman"        
                  }
         matplotlib.rcParams.update(params)
     
