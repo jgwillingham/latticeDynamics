@@ -20,11 +20,15 @@ class RigidIon:
     ----------
     lattice : Lattice object
               An instance of the Lattice class for the desired crystal
+              
     couplingArray : 2D array_like
                     2D array containing the force constants for calculating 
                     the force constant matrices.
-                    Element [i,j] should contain the coupling for interactions 
-                    between atom_i and atom_j as listed in the Lattice object.
+                    Element [i,j] should contain a list of the couplings
+                    for interactions between atom_i and atom_j as listed in 
+                    the Lattice object.
+                    
+                    e.g. couplingArray[i, j] = (A_ij , B_ij)
     """
     def __init__(self,  
                  lattice,
@@ -63,8 +67,8 @@ class RigidIon:
         
         Phi = np.zeros([3, 3])
         e=15.1891
-        A *= (e**2 / (2*self.lattice.volume))
-        B *= (e**2 / (2*self.lattice.volume))
+        A *= (e**2 / abs(2*self.lattice.volume))
+        B *= (e**2 / abs(2*self.lattice.volume))
         
         for x_i in range(3):
             for x_j in range(3):
