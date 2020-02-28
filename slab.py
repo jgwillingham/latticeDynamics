@@ -102,11 +102,12 @@ class Slab(Crystal):
         searchWidth = range(-cellSearchWidth, cellSearchWidth+1)
         neighbors = {atomLabel :[] for atomLabel in self.atomLabels}
         
-        (a1, a2, a3) = self.adaptedLatticeVectors
+        
+        (a1, a2, a3) = self.lattice_vectors
         
         for atom_i, label_i in zip(self.slabCell , self.atomLabels):
             Ri = atom_i.coords_cartesian
-            neighborBonds = set() # store set of neighbor bonds to prevent doubles
+            
             for atom_j, label_j in zip(self.slabCell , self.atomLabels):
                 xj = atom_j.coords_cartesian
                 
@@ -123,16 +124,14 @@ class Slab(Crystal):
                                 distance_ij <= threshold):
                                 
                                 frac_coords = self._cartToFrac(Rj)
-                                _bond = tuple(np.round(bond_ij, 6)) # hashable for set
-                                # check if neighbor is distinct and within slab
-                                if (not frac_coords[2] > 1 and 
-                                    not frac_coords[2] < 0 and
-                                    not _bond in neighborBonds ):
+                                # check if neighbor is within slab
+                                if (not abs(frac_coords[2]) > 1 and 
+                                    not abs(frac_coords[2]) < 0):
+                                    #not _bond in neighborBonds ):
 
                                     neighbors[label_i].append( 
                                         ( (label_i, label_j) , bond_ij ) 
                                         )
-                                    neighborBonds.add(_bond)
         self.neighbors = neighbors
   
         return neighbors
@@ -197,6 +196,29 @@ class Slab(Crystal):
         ax.set_axis_off()
         ax.legend()
         plt.show()
+        
+    
+    
+    def visualizeSlab(self,
+                      length=3,
+                      width=3,
+                      atomSize=400):
+        
+        cmap = plt.cm.RdGy
+        color_id = np.linspace(0, 1, self.bulk.atomsPerUnitCell)
+        (a1, a2, a3) = self.adaptedLatticeVectors
+        f = plt.figure()
+        ax = f.add_subplot(111, projection='3d')
+        
+        for atom, i in zip(self.slabCell, color_id):
+            for n1 in range(length):
+                for n2 in range(width):
+                    for n3 in range(self.numCells):
+                                    
+                        coords = atom.coords_fractional + n1*a1 + n2*a2 + n3*a3
+                        x, y, z = coords
+                        ax.scatter(x, y, z, s=atomSize, color=cmap(i))
+    plt.show()
         
     
     
@@ -278,7 +300,7 @@ class Slab(Crystal):
     
         return hkl
             
-            
+
     
     def _getLatticePlanes(self):
         """
@@ -428,7 +450,7 @@ class Slab(Crystal):
         """
         slabCell = []
         for lz in range(self.numCells):
-            for atom in self.bulk.atoms:
+            for atom in self.bulk._unitCell:
                 position = atom.coords_cartesian + lz*self.zPrimitive
                 fractional_coords = self._cartToFrac(position)
                 element = atom.element
@@ -486,6 +508,41 @@ class Slab(Crystal):
         fractional_coords = np.array(fractional_coords)
         
         return fractional_coords
+    
+    
+    def getSlabCouplingArray(self, 
+                              couplingArray):
+        """
+        Returns the coupling array for rigid ion phonon calculations. 
+        
+        NOTE: The couplings between surface atoms will be at the top-left
+              and bottom-right corners of the array 
+
+        Parameters
+        ----------
+        couplingArray : array_like
+                        Array containing the couplings between all atoms in
+                        the bulk unit cell.
+                        element [i,j] should have the couplings between
+                        atom_i and atom_j as listed in the unitCell
+
+        Returns
+        -------
+        slabCouplings : list
+                        Nested lists containing the couplings between
+                        atoms in the slab cell
+        """
+
+        n = self.bulk.atomsPerUnitCell
+        slabCouplings = []
+        
+        for i in range(self.atomsPerSlabCell):
+            slabCouplings.append([])
+            for j in range(self.atomsPerSlabCell):
+                slabCouplings[i].append( couplingArray[i%n][j%n] )
+                
+        return slabCouplings
+    
      
     
             
@@ -494,22 +551,26 @@ class Slab(Crystal):
         
 #from latticeDynamics.lattice import Lattice
 
-a = 6.6
-latvecs = [(1/2, 1/2, 0) , (1/2, 0, 1/2) , (0, 1/2, 1/2)]
-unitCell = [('Cd', np.array((0, 0, 0))),
-          ('Te', np.array((1/4, 1/4, 1/4)))]
-latvecs = [a*np.array(v) for v in latvecs]
-lattice = Lattice(unitCell, latvecs)
+# =============================================================================
+# a = 6.6
+# latvecs = [(1/2, 1/2, 0) , (1/2, 0, 1/2) , (0, 1/2, 1/2)]
+# unitCell = [('Cd', np.array((0, 0, 0))),
+#           ('Te', np.array((1/4, 1/4, 1/4)))]
+# latvecs = [a*np.array(v) for v in latvecs]
+# lattice = Lattice(unitCell, latvecs)
+# 
+# slab = Slab(lattice, '211', 4)    
+# 
+# planes = slab._getLatticePlanes()    
+# print('Surface Normal:\n',slab.surfaceNormal)
+# print('\nMesh Primitive Vectors:\n', slab.meshPrimitives)
+# print('\nOut of Plane Primitive Vector:\n', slab.zPrimitive)
+# print('\nDistinct Planes:')
+# for v in planes:
+#     print(v)
+# print('\nSlab:')
+# print(slab)
+# slab.getNeighbors(4)
+# =============================================================================
 
-slab = Slab(lattice, '211', 5)    
 
-planes = slab._getLatticePlanes()    
-print('Surface Normal:\n',slab.surfaceNormal)
-print('\nMesh Primitive Vectors:\n', slab.meshPrimitives)
-print('\nOut of Plane Primitive Vector:\n', slab.zPrimitive)
-print('\nDistinct Planes:')
-for v in planes:
-    print(v)
-print('\nSlab:')
-print(slab)
-slab.getNeighbors(4)

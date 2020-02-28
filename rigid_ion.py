@@ -18,8 +18,8 @@ class RigidIon:
     
     Parameters
     ----------
-    lattice : Lattice object
-              An instance of the Lattice class for the desired crystal
+    lattice : Lattice or Slab object
+              An instance of the Lattice/Slab class for the desired crystal
               
     couplingArray : 2D array_like
                     2D array containing the force constants for calculating 
@@ -40,8 +40,12 @@ class RigidIon:
         self.couplings = couplingArray
         self.neighbors = lattice.getNeighbors(threshold)
         self.atomLabels = self.lattice.atomLabels
-        self.atomsPerUnitCell = self.lattice.atomsPerUnitCell
-        
+        try:
+            self.atomsPerUnitCell = self.lattice.atomsPerUnitCell
+            self._cellVolume = self.lattice.volume
+        except AttributeError:
+            self.atomsPerUnitCell = self.lattice.atomsPerSlabCell
+            self._cellVolume = self.lattice.bulk.volume
     
     def _forceConstantMatrix(self, 
                              bond_ij, 
@@ -67,8 +71,8 @@ class RigidIon:
         
         Phi = np.zeros([3, 3])
         e=15.1891
-        A *= (e**2 / abs(2*self.lattice.volume))
-        B *= (e**2 / abs(2*self.lattice.volume))
+        A *= (e**2 / abs(2*self._cellVolume))
+        B *= (e**2 / abs(2*self._cellVolume))
         
         for x_i in range(3):
             for x_j in range(3):
