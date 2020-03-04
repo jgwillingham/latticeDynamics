@@ -13,6 +13,7 @@ import matplotlib
 
 from .rigid_ion import RigidIon
 from .coulomb import Coulomb
+from.slab import Slab
 
 
 
@@ -51,7 +52,7 @@ class Model:
                  lattice,
                  couplingArray,
                  threshold,
-                 coulomb=True,
+                 coulomb=False,
                  charges=None,
                  GSumDepth=5,
                  RSumDepth=5,
@@ -112,7 +113,8 @@ class Model:
                       pointDensity=35,
                       getEigenVectors=False,
                       keepCoulomb=False,
-                      showProgress=False):
+                      showProgress=False,
+                      save=True):
         """
         Calculate phonon dispersion along given path through reciprocal space
 
@@ -192,10 +194,11 @@ class Model:
                 
         dispersion = np.array(dispersion)
         normalModes = np.array(normalModes)
-        self.dispersion = dispersion
-        self.qPath = qPath
-        self.qPathParts = qPathParts
-        self.normalModes = normalModes
+        if save==True:
+            self.dispersion = dispersion
+            self.qPath = qPath
+            self.qPathParts = qPathParts
+            self.normalModes = normalModes
         
         return dispersion, normalModes, qPath, qPathParts
         
@@ -312,3 +315,118 @@ class Model:
             ax.axvline(tick, color='k', alpha=0.3)
         ax.grid(False)
         plt.show()
+        
+        
+    def getProjectedDispersion(self,
+                          surfaceMarkers,
+                          zMarkers,
+                          pointDensity=35,
+                          zPointDensity=15):
+        """
+        Calculate the bulk disperion projected onto a particular direction.
+
+        Parameters
+        ----------
+        surfaceMarkers : list
+                        A list of high symmetry points in the desired surface
+                        Brillouin zone. 
+        zMarkers : list of length=2
+                   List of q-vectors normal to the desired surface between 
+                   which the projections will be calculated.
+        pointDensity : int, optional
+                    The density of sampled points along path through surface
+                    Brillouin zone.
+                    The default is 35.
+        zPointDensity : The density of sampled points along projection axis, optional
+                        The default is 15.
+
+        Returns
+        -------
+        projectionLayers : list
+                           List of 2D Dispersions calculated along planes 
+                           parallel to the surface of interest
+        """
+        
+        qzPath, qzPathParts = self._buildPath(zMarkers, zPointDensity)
+        
+        projectionLayers = []        
+        for qz in qzPath:
+            qMarkers = [np.array(q)+qz for q in surfaceMarkers]
+            results = self.getDispersion(qMarkers,
+                                         pointDensity,
+                                         getEigenVectors=False,
+                                         keepCoulomb=False,
+                                         showProgress=False,
+                                         save=False)
+            projectionLayers.append(results[0])
+            
+        self.projectedDispersion = projectionLayers
+        self.surfPath, self.surfPathParts = self._buildPath(surfaceMarkers,
+                                                            pointDensity)
+        
+        return projectionLayers
+    
+    
+    
+    def plotProjectedDispersion(self,
+                                labels=[],
+                                figsize=(16,8),
+                                title='',
+                                style='r-',
+                                markersize=5,
+                                ylim=[0, None]):
+        """
+        Plot the projected dispersion.
+
+        Parameters
+        ----------
+        See plotDispersion method. They are the same
+        """
+        projectedDispersion = self.projectedDispersion
+        qPath = self.surfPath
+        qPathParts = self.surfPathParts
+        
+        f, ax = plt.subplots(figsize=figsize)
+        params = {
+                  'axes.labelsize': 18,
+                  'axes.titlesize': 22,
+                  'xtick.labelsize' :22,
+                  'ytick.labelsize': 18,
+                  'grid.color': 'k',
+                  'grid.linestyle': ':',
+                  'grid.linewidth': 0.5,
+                  'mathtext.fontset' : 'stix',
+                  'mathtext.rm'      : 'serif',
+                  'font.family'      : 'serif',
+                  'font.serif'       : "Times New Roman"        
+                 }
+        matplotlib.rcParams.update(params)
+        
+        for layer in projectedDispersion:
+            _plotLayer = ax.plot(layer, style, markersize=markersize)
+        ax.set_title(title)
+        ax.set_ylabel('$\\nu$ (THz)', rotation=90, labelpad=20)
+
+        ax.set_xlim(0, len(qPath)-1)
+        ax.set_ylim(ylim[0], ylim[1])
+        
+        lineLengths = [0]+[len(qLine)-1 for qLine in qPathParts]
+        tick_locs = np.cumsum(lineLengths)
+        ax.set_xticks( tick_locs )
+        ax.set_xticklabels( labels )
+        for tick in tick_locs:
+            ax.axvline(tick, color='k', alpha=0.3)
+        ax.grid(False)
+        plt.show()
+            
+        
+            
+            
+
+        
+        
+        
+        
+        
+        
+        
