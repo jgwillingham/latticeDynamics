@@ -10,6 +10,7 @@ import numpy as np
 import scipy.linalg as la
 import matplotlib.pyplot as plt
 import matplotlib
+from scipy.ndimage import gaussian_filter1d
 
 from .rigid_ion import RigidIon
 from .coulomb import Coulomb
@@ -271,16 +272,38 @@ class Model:
     
     def plotDispersion(self,
                        labels=[],
-                       figsize=(16,8),
+                       figsize=(15,6),
                        title='',
                        style='r-',
                        markersize=5,
-                       ylim=[0, None]):
+                       ylim=[0, None],
+                       withDOS=True,
+                       binDensity=60,
+                       smoothen=True,
+                       sigma=0.5,
+                       normalize=True):
         dispersion = self.dispersion
         qPath = self.qPath
         qPathParts = self.qPathParts
         
-        f, ax = plt.subplots(figsize=figsize)
+        if withDOS:
+            DOS, bins = self.getDOS(dispersion,
+                              binDensity=binDensity,
+                              smoothen=smoothen,
+                              sigma=sigma,
+                              normalize=normalize)
+            gridspec_kw = {'hspace':0,
+                           'wspace':0.03,
+                           'width_ratios':[4,1]}
+        else:
+            gridspec_kw = {'hspace':0,
+                           'wspace':0,
+                           'width_ratios':[4,0]} # tucks away the DOS axes
+            
+        f, (ax, axDOS) = plt.subplots(1,2, 
+                             figsize=figsize,
+                             sharey='row',
+                             gridspec_kw=gridspec_kw)
         params = {
                   'axes.labelsize': 18,
                   'axes.titlesize': 22,
@@ -311,4 +334,46 @@ class Model:
         for tick in tick_locs:
             ax.axvline(tick, color='k', alpha=0.3)
         ax.grid(False)
+        
+        if withDOS:
+            axDOS.fill_between(DOS, bins[:-1], color='k', alpha=0.5)
+            axDOS.set_xlim(0, max(DOS)*1.05)
+            axDOS.set_xticklabels([])
+            axDOS.grid(True)
+            axDOS.set_title('DOS')
+        
         plt.show()
+
+    
+    
+    def getDOS(self,
+               dispersion=[],
+               binDensity=60,
+               smoothen=False,
+               sigma=0.05,
+               normalize=True
+               ):
+        
+        if dispersion==[]: 
+            dispersion = self.dispersion
+            
+        dispersion = dispersion.flatten()
+        topOfRange = max(dispersion)*1.05
+        numBins = int(topOfRange*binDensity)
+        bins = np.linspace(0, topOfRange, numBins)
+        
+        histogram, bins = np.histogram(dispersion, bins)
+        
+        if smoothen:
+            histogram = gaussian_filter1d(histogram, sigma)
+        
+        if normalize:
+            histogram = histogram/max(histogram)
+        
+        return histogram, bins
+        
+    
+                
+        
+        
+        
