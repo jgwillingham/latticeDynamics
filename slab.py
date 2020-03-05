@@ -58,14 +58,17 @@ class Slab(Crystal):
         self.surfaceNormal, self.planeSpacing = self._getNormalVectors()
         
         self.meshPrimitives = self._getMeshPrimitives(searchWidth)
+        self.area = la.norm(np.cross(self.meshPrimitives[0], self.meshPrimitives[1])) # area of mesh unit cell
         self.zPrimitive = self._getOutOfPlanePrimitiveVector(searchWidth)
         self.adaptedLatticeVectors = [self.meshPrimitives[0], 
                                       self.meshPrimitives[1],
                                       self.zPrimitive]
         
+        self.meshReciprocals = self._getMeshReciprocalVectors()
+        
         self.slabCell, slabVectors = self._buildSlabCell()
         self.atomsPerSlabCell = len(self.slabCell)
-        Crystal.__init__(self, self.slabCell, slabVectors)
+        Crystal.__init__(self, self.slabCell, slabVectors) 
         self.atomicWeights = [atom.mass for atom in self.slabCell]
         self.atomLabels = [f'{inx}_{atom.element}' 
                       for atom, inx in 
@@ -102,7 +105,6 @@ class Slab(Crystal):
         searchWidth = range(-cellSearchWidth, cellSearchWidth+1)
         neighbors = {atomLabel :[] for atomLabel in self.atomLabels}
         
-        
         (a1, a2, a3) = self.lattice_vectors
         
         for atom_i, label_i in zip(self.slabCell , self.atomLabels):
@@ -127,7 +129,6 @@ class Slab(Crystal):
                                 # check if neighbor is within slab
                                 if (not abs(frac_coords[2]) > 1 and 
                                     not abs(frac_coords[2]) < 0):
-                                    #not _bond in neighborBonds ):
 
                                     neighbors[label_i].append( 
                                         ( (label_i, label_j) , bond_ij ) 
@@ -436,6 +437,29 @@ class Slab(Crystal):
         return mesh_primitives
     
     
+    def _getMeshReciprocalVectors(self):
+        """
+        Get Reciprocal Lattice vectors for the lattice planes parallel 
+        to the surface
+
+        Returns
+        -------
+        b1 : array
+             Reciprocal lattice vector
+             
+        b2 : array
+             Reciprocal lattice vector
+        """
+        (a1, a2) = self.meshPrimitives
+        a3 = self.surfaceNormal
+        vol = abs(a1 @ np.cross(a2, a3))
+        
+        b1 = (2*np.pi/vol)*np.cross(a2, a3)
+        b2 = (2*np.pi/vol)*np.cross(a3, a1)
+        
+        return (b1, b2)
+    
+    
     
     def _buildSlabCell(self):
         """
@@ -515,8 +539,8 @@ class Slab(Crystal):
         """
         Returns the coupling array for rigid ion phonon calculations. 
         
-        NOTE: The couplings between surface atoms will be at the top-left
-              and bottom-right corners of the array 
+        NOTE: The couplings for the surface are at 'the surface' of the matrix
+              i.e. they are on the edge rows and columns
 
         Parameters
         ----------
