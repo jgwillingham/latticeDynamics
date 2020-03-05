@@ -41,11 +41,13 @@ class RigidIon:
         self.neighbors = lattice.getNeighbors(threshold)
         self.atomLabels = self.lattice.atomLabels
         try:
-            self.atomsPerUnitCell = self.lattice.atomsPerUnitCell
+            self.atomsPerUnitCell = self.lattice.atomsPerUnitCell # if given Lattice object
             self._cellVolume = self.lattice.volume
         except AttributeError:
-            self.atomsPerUnitCell = self.lattice.atomsPerSlabCell
+            self.atomsPerUnitCell = self.lattice.atomsPerSlabCell # if given Slab object
             self._cellVolume = self.lattice.bulk.volume
+    
+    
     
     def _forceConstantMatrix(self, 
                              bond_ij, 
