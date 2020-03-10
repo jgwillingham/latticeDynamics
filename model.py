@@ -13,7 +13,6 @@ import matplotlib
 
 from .rigid_ion import RigidIon
 from .coulomb import Coulomb
-from.slab import Slab
 
 
 
@@ -138,6 +137,9 @@ class Model:
                       Prints the progress of the building Coulomb matrices
                       for storing. Only hass effect if keepCoulomb==True
                       Default is False
+        save : bool, optional
+               If true, the dispersion, normal modes, q-path, and q-path parts
+               are saved as attributes to the Model object
 
         Returns
         -------

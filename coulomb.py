@@ -7,7 +7,9 @@ Created on Sun Feb 23 13:00:26 2020
 
 import numpy as np
 import scipy.linalg as la
-from scipy.special import erfc 
+from scipy.special import erfc, gamma, gammaincc
+from latticeDynamics.lattice import Lattice
+from latticeDynamics.slab import Slab
 
 
 
@@ -41,18 +43,41 @@ class Coulomb:
                  eta='default'):
         
         self.lattice = lattice
-        self.charges = np.array(charges)
         self.GSumDepth = GSumDepth
         self.RSumDepth = RSumDepth
+        
+        if isinstance(lattice, Lattice):
+            self.dim = 3 # dimension of Ewald sum
+            self._latticeVectors = lattice.lattice_vectors
+            self._reciprocalVectors = lattice.reciprocal_vectors
+            self._cellVol = lattice.volume
+            self._unitCell = lattice._unitCell
+            self._atomsPerCell = lattice.atomsPerUnitCell
+            self.charges = np.array(charges)
+            self.ewald = self._bulkEwald
+            
+        elif isinstance(lattice, Slab):
+            self.dim = 2
+            self._latticeVectors = lattice.meshPrimitives
+            self._reciprocalVectors = lattice.meshReciprocals
+            self._cellVol = lattice.area
+            self._unitCell = lattice.slabCell
+            self._atomsPerCell = lattice.atomsPerSlabCell
+            self.charges = np.array([charges for cell in range(lattice.numCells)]).flatten()
+            self.ewald = self._slabEwald
+            
+            
         if eta == 'default':
-            self.eta = (self.lattice.volume)**(-1/3)
+            self.eta = (self._cellVol)**(-1/self.dim)
         else:
             self.eta = eta
-        self.GList = self._buildList(lattice.reciprocal_vectors,
+        self.GList = self._buildList(self._reciprocalVectors,
                                      GSumDepth)
-        self.RList = self._buildList(lattice.lattice_vectors,
+        self.RList = self._buildList(self._latticeVectors,
                                      RSumDepth)
         self.Z = self.getChargeMatrix()
+
+
 
 
     def C(self, 
@@ -72,38 +97,28 @@ class Coulomb:
         """
 
         q = np.array(q)
-        n = self.lattice.atomsPerUnitCell
+        n = self._atomsPerCell
         blocks = []
         
         for i in range(n):
             blocks.append([])
-            xi = self.lattice._unitCell[i].coords_cartesian
+            xi = self._unitCell[i].coords_cartesian
             
             for j in range(n):
-                xj = self.lattice._unitCell[j].coords_cartesian
-                Delta = xj - xi
+                xj = self._unitCell[j].coords_cartesian
+                intracell_distance = xj - xi
                 
-                Cfar_ij = self._qSpaceSum(Delta, q)
-                Cnear_ij = self._realSpaceSum(Delta, q)
-                C_ij = Cfar_ij + Cnear_ij
-                
+                C_ij = self.ewald(q, intracell_distance)
                 blocks[i].append( C_ij )
+                
                 if i == j:
-                    # include self term
                     blocks[i][j] += self._Cself(i)
                     
-                if la.norm(q) != 0:
-                    # non-analytic term excluded where it is singular
-                    norm = la.norm(q)
-                    G0_term = np.outer(q, q) / norm**2
-                    G0_term = G0_term * np.exp(- norm**2/(4*self.eta**2))
-                    blocks[i][j] += (4*np.pi/self.lattice.volume) * G0_term
-  
         _C = np.matrix(np.block( blocks ))
 
         return _C
     
-    
+
     def _Cself(self, 
                i):
         """
@@ -121,28 +136,71 @@ class Coulomb:
         """
         
         Gamma = np.array((0, 0, 0))
-        Ci_self = np.zeros([3,3], dtype='complex128')
-        xi = self.lattice._unitCell[i].coords_cartesian
+        Ci_self = np.zeros([3, 3], dtype='complex128')
+        xi = self._unitCell[i].coords_cartesian
         
-        for j in range(self.lattice.atomsPerUnitCell):
+        for j in range(self._atomsPerCell):
             Zfactor = self.charges[j] / self.charges[i]
-            xj = self.lattice._unitCell[j].coords_cartesian
-            Delta = xj - xi
+            xj = self._unitCell[j].coords_cartesian
+            intracell_distance = xj - xi
             
-            Cfar_ij = self._qSpaceSum(Delta, Gamma)
-            Cnear_ij = self._realSpaceSum(Delta, Gamma)
-            C_ij = Cfar_ij + Cnear_ij
+            C_ij = self.ewald(Gamma, intracell_distance)
             
             Ci_self -= Zfactor*C_ij
         
         return Ci_self
+    
+    
+    
+    
+    def _bulkEwald(self,
+                   q,
+                   intracell_distance):
+        
+        C_far = self._qSpaceSum(q, 
+                                intracell_distance, 
+                                intracell_distance)
+        C_near = self._realSpaceSum(q, 
+                                    intracell_distance, 
+                                    intracell_distance)
+        C_ij = C_far + C_near
+        
+        return C_ij
+    
+    
+    
+    def _slabEwald(self,
+                   q,
+                   intracell_distance):
+        Delta_parallel, Delta_normal = self.lattice.projectVector(intracell_distance)
+        
+        if la.norm(Delta_normal) > 10**-7:
+            C_ij = self._differentPlaneSum(q, 
+                                           Delta_parallel, 
+                                           Delta_normal)
+            
+        else:
+            C_far = self._qSpaceSum(q, 
+                                    Delta_parallel, 
+                                    intracell_distance)
+            C_near = self._realSpaceSum(q, 
+                                        Delta_parallel, 
+                                        intracell_distance)
+            C_ij = C_far + C_near 
+            #C_ij = C_ij + np.eye(3)*4/(3*np.sqrt(np.pi)) # from self-interaction
+        
+        
+        return C_ij
+            
+          
             
                  
     def _qSpaceSum(self,
+                   q,
                    Delta,
-                   q):
+                   intracell_distance):
         """
-        Reciprocal lattice sum in Ewald summation
+        Reciprocal lattice sum in d-dimensional Ewald summation
 
         Parameters
         ----------
@@ -156,31 +214,38 @@ class Coulomb:
         Cfar_ij : ndarray
                   2D array containing the reciprocal lattice sum
         """
-
+        d = self.dim
         Delta = np.array(Delta)
 
         Cfar_ij = np.zeros([3,3], dtype='complex128')
         QGList = [np.array(q+G) for G in self.GList]
+        
+        if la.norm(q) != 0: # include G=0 term when non-singular
+            QGList.append(q)
 
         for G in QGList:
             norm = la.norm(G)
-            term = np.outer(G, G) / norm**2
-            term = term * np.exp(-1j * G @ Delta) 
-            term = term * np.exp(-norm**2 / (4*self.eta**2))
+            term = np.outer(G, G) / norm**(d-1)
+            term = term * np.exp(-1j * G @ intracell_distance) 
+            alpha = (d-1)/2
+            x = norm / (2*self.eta)
+            term *= gammaincc(alpha, x**2) * gamma(alpha)
             Cfar_ij += term
         
-        Cfar_ij = Cfar_ij * (4*np.pi / self.lattice.volume)
+        Cfar_ij = Cfar_ij * (2*np.sqrt(np.pi))**(d-1) / self._cellVol
         Cfar_ij = Cfar_ij * np.exp(1j * q @ Delta) 
+        
         
         return Cfar_ij
     
     
     
     def _realSpaceSum(self,
+                      q,
                       Delta,
-                      q):
+                      intracell_distance):
         """
-        Direct lattice sum in Ewald summation
+        Direct lattice sum in d-dimensional Ewald summation
 
         Parameters
         ----------
@@ -195,7 +260,7 @@ class Coulomb:
                   2D array containing the direct lattice sum
         """
         Cnear_ij = np.zeros([3,3] , dtype='complex128')
-        DeltaRList = [R+Delta for R in self.RList]
+        DeltaRList = [R + intracell_distance for R in self.RList]
         
         for dR in DeltaRList:
             norm = la.norm(dR)
@@ -205,12 +270,47 @@ class Coulomb:
             t2 = np.eye(3) / norm**3
             t2 = t2 * ( erfc(y) + 2*y * np.exp(-y**2) / np.sqrt(np.pi) )
             term = t1 - t2
-            term = term * np.exp(1j * q @ (dR - Delta))
+            term = term * np.exp(1j * q @ (dR - intracell_distance))
             Cnear_ij += term
         
         Cnear_ij = Cnear_ij * np.exp(1j * q @ Delta)
         
         return -1*Cnear_ij
+    
+    
+    
+    def _differentPlaneSum(self,
+                            q,
+                            Delta_parallel,
+                            Delta_normal):
+        
+        C_ij = np.zeros([3,3], dtype='complex128')
+        
+        qGList = [q + G for G in self.GList]
+        
+        if la.norm(q) != 0:
+            qGList.append(q) # include G=0 term when non-singular
+        
+        for qG in qGList:
+            qGnorm = la.norm(qG)
+            Delta_norm = la.norm(Delta_normal)
+            term1 = np.outer(qG, qG) / qGnorm
+            
+            term2 = 1j*np.outer(qG, Delta_normal) / Delta_norm
+            term2 += 1j*np.outer(Delta_normal, qG) / Delta_norm
+            
+            term3 = qGnorm*np.outer(Delta_normal, Delta_normal) / Delta_norm**2
+            
+            full_term = (term1 - term2 - term3)*np.exp(-1j*qG @ Delta_parallel)
+            full_term = full_term * np.exp(- Delta_norm * qGnorm)
+            
+            C_ij = C_ij + full_term
+        
+        C_ij = C_ij * (2*np.pi/self._cellVol)*np.exp(1j * q @ Delta_parallel)
+        
+        return C_ij
+    
+    
         
         
     def _buildList(self, 
@@ -234,16 +334,23 @@ class Coulomb:
 
         """
         
-        (v1, v2, v3) = vectors
+        sumRange = range(-sumDepth, sumDepth+1)
+        vectors = list(vectors)
+        if self.dim == 3: 
+            zSumRange = sumRange
+        elif self.dim == 2:
+            zSumRange = [0] # only sum over third vector if in 3D bulk
+            vectors.append(np.zeros(3))
+            
+        v = vectors
         
         # make list of reciprocal/direct lattice vectors to sum over
-        Vec = lambda n1,n2,n3 : n1*v1 + n2*v2 + n3*v3
-        sumRange = range(-sumDepth, sumDepth+1)
+        Vec = lambda n1,n2,n3 : n1*v[0] + n2*v[1] + n3*v[2]
+        
         List = []
-                    
         for n1 in sumRange:
             for n2 in sumRange:
-                for n3 in sumRange:
+                for n3 in zSumRange:
                     if n1==n2==n3==0:
                         pass
                     else:
@@ -251,6 +358,7 @@ class Coulomb:
                         List.append(vector)
         return List
         
+
 
     def getChargeMatrix(self):
         """
@@ -270,3 +378,28 @@ class Coulomb:
         Z = np.matrix(Z)
         
         return Z
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
