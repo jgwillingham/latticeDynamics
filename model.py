@@ -110,9 +110,9 @@ class Model:
     def getDispersion(self, 
                       qMarkers,
                       pointDensity=35,
-                      getEigenVectors=False,
+                      getEigenvectors=False,
                       keepCoulomb=False,
-                      showProgress=False,
+                      showProgress=True,
                       save=True):
         """
         Calculate phonon dispersion along given path through reciprocal space
@@ -180,17 +180,18 @@ class Model:
         dispersion = []
         normalModes = []
         
-        for D in DList:
-            if getEigenVectors==True:
-                [eigenValues, eigenVectors] = la.eigh(D)
-                eigenValues = np.round(eigenValues, 10)
-                frequencies_THz = np.round(np.sqrt(eigenValues)/(2*np.pi), 10)
+        if getEigenvectors == True:
+            for D in DList:
+                eigenvalues, eigenvectors = la.eigh(D)
+                eigenvalues = np.round(eigenvalues, 10)
+                frequencies_THz = np.round(np.sqrt(eigenvalues)/(2*np.pi), 10)
                 dispersion.append(frequencies_THz)
-                normalModes.append(eigenVectors)
-            else:
-                eigenValues = la.eigvalsh(D) 
-                eigenValues = np.round(eigenValues, 10)
-                frequencies_THz = np.round(np.sqrt(eigenValues)/(2*np.pi) ,10)
+                normalModes.append(eigenvectors)
+        else:
+            for D in DList:
+                eigenvalues = la.eigvalsh(D) 
+                eigenvalues = np.round(eigenvalues, 10)
+                frequencies_THz = np.round(np.sqrt(eigenvalues)/(2*np.pi) ,10)
                 dispersion.append(frequencies_THz)
 
                 

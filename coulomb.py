@@ -290,19 +290,20 @@ class Coulomb:
         
         if la.norm(q) != 0:
             qGList.append(q) # include G=0 term when non-singular
-        
+            
         for qG in qGList:
             qGnorm = la.norm(qG)
             Delta_norm = la.norm(Delta_normal)
+            
             term1 = np.outer(qG, qG) / qGnorm
             
             term2 = 1j*np.outer(qG, Delta_normal) / Delta_norm
             term2 += 1j*np.outer(Delta_normal, qG) / Delta_norm
-            
+
             term3 = qGnorm*np.outer(Delta_normal, Delta_normal) / Delta_norm**2
-            
+
             full_term = (term1 - term2 - term3)*np.exp(-1j*qG @ Delta_parallel)
-            full_term = full_term * np.exp(- Delta_norm * qGnorm)
+            full_term = full_term * np.exp( - Delta_norm * qGnorm)
             
             C_ij = C_ij + full_term
         
