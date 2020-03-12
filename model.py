@@ -124,7 +124,7 @@ class Model:
         pointDensity : int, optional
                        Density of points to sample along path.
                        The default is 35.
-        getEigenVectors : Bool, optional
+        getEigenvectors : Bool, optional
                           Whether to return the eigenvectors. 
                           The default is False.
         keepCoulomb : bool, optional
@@ -148,7 +148,7 @@ class Model:
                      each q in the path
         normalModes : ndarray, conditional
                       Array containing the eigenvectors at each q.
-                      Only returned if getEigenVectors==True
+                      Only returned if getEigenvectors==True
         qPath : ndarray
                 Array containing all q vectors calculated for
         qPathParts : list
@@ -357,7 +357,7 @@ class Model:
             qMarkers = [np.array(q)+qz for q in surfaceMarkers]
             results = self.getDispersion(qMarkers,
                                          pointDensity,
-                                         getEigenVectors=False,
+                                         getEigenvectors=False,
                                          keepCoulomb=False,
                                          showProgress=False,
                                          save=False)

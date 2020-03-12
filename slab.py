@@ -104,6 +104,9 @@ class Slab(Crystal):
         
         searchWidth = range(-cellSearchWidth, cellSearchWidth+1)
         neighbors = {atomLabel :[] for atomLabel in self.atomLabels}
+        sign = np.sign(self._cartToFrac(self.slabCell[-1].coords_cartesian)[2])
+        # This^ is the sign of the largest fractional z-component in the slab.
+        # It is used to determine whether a given position is within the slab 
         
         (a1, a2, a3) = self.lattice_vectors
         
@@ -115,9 +118,9 @@ class Slab(Crystal):
                 
                 for n1 in searchWidth:
                     for n2 in searchWidth:
-                        for n3 in searchWidth:
+                        #for n3 in searchWidth:
 
-                            latVec = n1*a1 + n2*a2 + n3*a3
+                            latVec = n1*a1 + n2*a2 #+ n3*a3
                             Rj = xj + latVec
                             bond_ij = Rj - Ri
                             distance_ij = la.norm(bond_ij)
@@ -125,13 +128,14 @@ class Slab(Crystal):
                             if (distance_ij > 10**-9 and 
                                 distance_ij <= threshold):
                                 
-                                frac_coords = self._cartToFrac(Rj)
+                                frac_coords = np.round(self._cartToFrac(Rj),9)
+                                
                                 # check if neighbor is within slab
                                 if (not abs(frac_coords[2]) > 1 and 
-                                    not abs(frac_coords[2]) < 0):
+                                    np.sign(frac_coords[2]) != -1*sign):
 
                                     neighbors[label_i].append( 
-                                        ( (label_i, label_j) , bond_ij ) 
+                                        ( (label_i, label_j) , np.round(bond_ij,9) ) 
                                         )
         self.neighbors = neighbors
   
@@ -478,7 +482,13 @@ class Slab(Crystal):
                 position = atom.coords_cartesian + lz*self.zPrimitive
                 fractional_coords = self._cartToFrac(position)
                 element = atom.element
-                slabCell.append(Atom(element, fractional_coords))
+                # if atom is at top of slab cell, put it at bottom instead
+                # this prevents a non-Hermitian error
+                if abs(np.round(fractional_coords[2], 9))==1.0:
+                    fractional_coords[2] = 0.0
+                    slabCell.insert(0, Atom(element, fractional_coords))
+                else:
+                    slabCell.append(Atom(element, fractional_coords))
         
         (s1, s2, s3) = self.adaptedLatticeVectors
         s3 = s3*self.numCells
