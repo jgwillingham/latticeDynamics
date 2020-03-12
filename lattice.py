@@ -131,6 +131,7 @@ class Lattice(Crystal):
         
         return M
 
+
     def visualizeNeighbors(self, 
                            atomLabel, 
                            atomSize=600):
@@ -167,3 +168,6 @@ class Lattice(Crystal):
         ax.set_axis_off()
         ax.legend()
         plt.show()
+        
+        
+    

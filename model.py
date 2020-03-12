@@ -52,7 +52,7 @@ class Model:
                  lattice,
                  couplingArray,
                  threshold,
-                 coulomb=True,
+                 coulomb=False,
                  charges=None,
                  GSumDepth=5,
                  RSumDepth=5,
@@ -111,9 +111,10 @@ class Model:
     def getDispersion(self, 
                       qMarkers,
                       pointDensity=35,
-                      getEigenVectors=False,
+                      getEigenvectors=False,
                       keepCoulomb=False,
-                      showProgress=False):
+                      showProgress=True,
+                      save=True):
         """
         Calculate phonon dispersion along given path through reciprocal space
 
@@ -124,7 +125,7 @@ class Model:
         pointDensity : int, optional
                        Density of points to sample along path.
                        The default is 35.
-        getEigenVectors : Bool, optional
+        getEigenvectors : Bool, optional
                           Whether to return the eigenvectors. 
                           The default is False.
         keepCoulomb : bool, optional
@@ -137,6 +138,9 @@ class Model:
                       Prints the progress of the building Coulomb matrices
                       for storing. Only hass effect if keepCoulomb==True
                       Default is False
+        save : bool, optional
+               If true, the dispersion, normal modes, q-path, and q-path parts
+               are saved as attributes to the Model object
 
         Returns
         -------
@@ -145,7 +149,7 @@ class Model:
                      each q in the path
         normalModes : ndarray, conditional
                       Array containing the eigenvectors at each q.
-                      Only returned if getEigenVectors==True
+                      Only returned if getEigenvectors==True
         qPath : ndarray
                 Array containing all q vectors calculated for
         qPathParts : list
@@ -170,33 +174,35 @@ class Model:
             self.withCoulomb = False # temporarily set withCoulomb to False
             DList = [self.D(q) + M @ self.storedCoulomb[str(q)] @ M 
                                              for q in qPath]
-            self.withCoulomb=True # reset withCoulomb to True
+            self.withCoulomb = True # reset withCoulomb to True
         else:
             DList = [ self.D(q) for q in qPath ]
             
         dispersion = []
         normalModes = []
         
-        for D in DList:
-            if getEigenVectors==True:
-                [eigenValues, eigenVectors] = la.eigh(D)
-                eigenValues = np.round(eigenValues, 10)
-                frequencies_THz = np.round(np.sqrt(eigenValues)/(2*np.pi), 10)
+        if getEigenvectors == True:
+            for D in DList:
+                eigenvalues, eigenvectors = la.eigh(D)
+                eigenvalues = np.round(eigenvalues, 10)
+                frequencies_THz = np.round(np.sqrt(eigenvalues)/(2*np.pi), 10)
                 dispersion.append(frequencies_THz)
-                normalModes.append(eigenVectors)
-            else:
-                eigenValues = la.eigvalsh(D) 
-                eigenValues = np.round(eigenValues, 10)
-                frequencies_THz = np.round(np.sqrt(eigenValues)/(2*np.pi) ,10)
+                normalModes.append(eigenvectors)
+        else:
+            for D in DList:
+                eigenvalues = la.eigvalsh(D) 
+                eigenvalues = np.round(eigenvalues, 10)
+                frequencies_THz = np.round(np.sqrt(eigenvalues)/(2*np.pi) ,10)
                 dispersion.append(frequencies_THz)
 
                 
         dispersion = np.array(dispersion)
         normalModes = np.array(normalModes)
-        self.dispersion = dispersion
-        self.qPath = qPath
-        self.qPathParts = qPathParts
-        self.normalModes = normalModes
+        if save==True:
+            self.dispersion = dispersion
+            self.qPath = qPath
+            self.qPathParts = qPathParts
+            self.normalModes = normalModes
         
         return dispersion, normalModes, qPath, qPathParts
         
@@ -315,7 +321,7 @@ class Model:
                   'mathtext.fontset' : 'stix',
                   'mathtext.rm'      : 'serif',
                   'font.family'      : 'serif',
-                  'font.serif'       : "Times New Roman"# or "Times"          
+                  'font.serif'       : "Times New Roman"        
                  }
         matplotlib.rcParams.update(params)
     
@@ -334,6 +340,7 @@ class Model:
         for tick in tick_locs:
             ax.axvline(tick, color='k', alpha=0.3)
         ax.grid(False)
+
         
         if withDOS:
             axDOS.fill_between(DOS, bins[:-1], color='k', alpha=0.5)
@@ -372,8 +379,113 @@ class Model:
         
         return histogram, bins
         
+        
+        
+    def getProjectedDispersion(self,
+                          surfaceMarkers,
+                          zMarkers,
+                          pointDensity=35,
+                          zPointDensity=15):
+        """
+        Calculate the bulk disperion projected onto a particular direction.
+
+        Parameters
+        ----------
+        surfaceMarkers : list
+                        A list of high symmetry points in the desired surface
+                        Brillouin zone. 
+        zMarkers : list of length=2
+                   List of q-vectors normal to the desired surface between 
+                   which the projections will be calculated.
+        pointDensity : int, optional
+                    The density of sampled points along path through surface
+                    Brillouin zone.
+                    The default is 35.
+        zPointDensity : The density of sampled points along projection axis, optional
+                        The default is 15.
+
+        Returns
+        -------
+        projectionLayers : list
+                           List of 2D Dispersions calculated along planes 
+                           parallel to the surface of interest
+        """
+        
+        qzPath, qzPathParts = self._buildPath(zMarkers, zPointDensity)
+        
+        projectionLayers = []        
+        for qz in qzPath:
+            qMarkers = [np.array(q)+qz for q in surfaceMarkers]
+            results = self.getDispersion(qMarkers,
+                                         pointDensity,
+                                         getEigenvectors=False,
+                                         keepCoulomb=False,
+                                         showProgress=False,
+                                         save=False)
+            projectionLayers.append(results[0])
+            
+        self.projectedDispersion = projectionLayers
+        self.surfPath, self.surfPathParts = self._buildPath(surfaceMarkers,
+                                                            pointDensity)
+        
+        return projectionLayers
     
-                
+    
+    
+    def plotProjectedDispersion(self,
+                                labels=[],
+                                figsize=(16,8),
+                                title='',
+                                style='r-',
+                                markersize=5,
+                                ylim=[0, None]):
+        """
+        Plot the projected dispersion.
+
+        Parameters
+        ----------
+        See plotDispersion method. They are the same
+        """
+        projectedDispersion = self.projectedDispersion
+        qPath = self.surfPath
+        qPathParts = self.surfPathParts
+        
+        f, ax = plt.subplots(figsize=figsize)
+        params = {
+                  'axes.labelsize': 18,
+                  'axes.titlesize': 22,
+                  'xtick.labelsize' :22,
+                  'ytick.labelsize': 18,
+                  'grid.color': 'k',
+                  'grid.linestyle': ':',
+                  'grid.linewidth': 0.5,
+                  'mathtext.fontset' : 'stix',
+                  'mathtext.rm'      : 'serif',
+                  'font.family'      : 'serif',
+                  'font.serif'       : "Times New Roman"        
+                 }
+        matplotlib.rcParams.update(params)
+        
+        for layer in projectedDispersion:
+            _plotLayer = ax.plot(layer, style, markersize=markersize)
+        ax.set_title(title)
+        ax.set_ylabel('$\\nu$ (THz)', rotation=90, labelpad=20)
+
+        ax.set_xlim(0, len(qPath)-1)
+        ax.set_ylim(ylim[0], ylim[1])
+        
+        lineLengths = [0]+[len(qLine)-1 for qLine in qPathParts]
+        tick_locs = np.cumsum(lineLengths)
+        ax.set_xticks( tick_locs )
+        ax.set_xticklabels( labels )
+        for tick in tick_locs:
+            ax.axvline(tick, color='k', alpha=0.3)
+        ax.grid(False)
+        plt.show()
+            
+        
+            
+            
         
         
         

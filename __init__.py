@@ -10,3 +10,4 @@ from latticeDynamics.lattice import Lattice
 from latticeDynamics.rigid_ion import RigidIon
 from latticeDynamics.coulomb import Coulomb
 from latticeDynamics.model import Model
+from latticeDynamics.slab import Slab

@@ -18,13 +18,17 @@ class RigidIon:
     
     Parameters
     ----------
-    lattice : Lattice object
-              An instance of the Lattice class for the desired crystal
+    lattice : Lattice or Slab object
+              An instance of the Lattice/Slab class for the desired crystal
+              
     couplingArray : 2D array_like
                     2D array containing the force constants for calculating 
                     the force constant matrices.
-                    Element [i,j] should contain the coupling for interactions 
-                    between atom_i and atom_j as listed in the Lattice object.
+                    Element [i,j] should contain a list of the couplings
+                    for interactions between atom_i and atom_j as listed in 
+                    the Lattice object.
+                    
+                    e.g. couplingArray[i, j] = (A_ij , B_ij)
     """
     def __init__(self,  
                  lattice,
@@ -36,8 +40,14 @@ class RigidIon:
         self.couplings = couplingArray
         self.neighbors = lattice.getNeighbors(threshold)
         self.atomLabels = self.lattice.atomLabels
-        self.atomsPerUnitCell = self.lattice.atomsPerUnitCell
-        
+        try:
+            self.atomsPerUnitCell = self.lattice.atomsPerUnitCell # if given Lattice object
+            self._cellVolume = self.lattice.volume
+        except AttributeError:
+            self.atomsPerUnitCell = self.lattice.atomsPerSlabCell # if given Slab object
+            self._cellVolume = self.lattice.bulk.volume
+    
+    
     
     def _forceConstantMatrix(self, 
                              bond_ij, 
@@ -63,8 +73,8 @@ class RigidIon:
         
         Phi = np.zeros([3, 3])
         e=15.1891
-        A *= (e**2 / (2*self.lattice.volume))
-        B *= (e**2 / (2*self.lattice.volume))
+        A *= (e**2 / abs(2*self._cellVolume))
+        B *= (e**2 / abs(2*self._cellVolume))
         
         for x_i in range(3):
             for x_j in range(3):
