@@ -111,7 +111,7 @@ class Model:
     def getDispersion(self, 
                       qMarkers,
                       pointDensity=35,
-                      getEigenvectors=False,
+                      getNormalModes=False,
                       keepCoulomb=False,
                       showProgress=True,
                       save=True):
@@ -125,8 +125,8 @@ class Model:
         pointDensity : int, optional
                        Density of points to sample along path.
                        The default is 35.
-        getEigenvectors : Bool, optional
-                          Whether to return the eigenvectors. 
+        getNormalModes : Bool, optional
+                          Whether to return the mass-scaled eigenvectors. 
                           The default is False.
         keepCoulomb : bool, optional
                       If True, the coulomb contribution to the dynamical 
@@ -148,8 +148,9 @@ class Model:
                      List containing the calculating phonon frequencies over
                      each q in the path
         normalModes : ndarray, conditional
-                      Array containing the eigenvectors at each q.
-                      Only returned if getEigenvectors==True
+                      2D array containing the mass-scaled eigenvectors at 
+                      each q. The eigenvectors are the COLUMNS of the array.
+                      Only returned if getNormalModes==True
         qPath : ndarray
                 Array containing all q vectors calculated for
         qPathParts : list
@@ -181,13 +182,14 @@ class Model:
         dispersion = []
         normalModes = []
         
-        if getEigenvectors == True:
+        if getNormalModes == True:
             for D in DList:
                 eigenvalues, eigenvectors = la.eigh(D)
                 eigenvalues = np.round(eigenvalues, 10)
                 frequencies_THz = np.round(np.sqrt(eigenvalues)/(2*np.pi), 10)
                 dispersion.append(frequencies_THz)
-                normalModes.append(eigenvectors)
+                qModes = self.M @ eigenvectors # account for mass normalization
+                normalModes.append(qModes)
         else:
             for D in DList:
                 eigenvalues = la.eigvalsh(D) 
@@ -283,11 +285,15 @@ class Model:
                        style='r-',
                        markersize=5,
                        ylim=[0, None],
+                       withSurfaceModes=False,
+                       surfaceStyle='bo',
+                       surfaceMarkersize=5,
                        withDOS=True,
                        binDensity=60,
-                       smoothen=True,
+                       smoothenDOS=True,
                        sigma=0.5,
                        normalize=True):
+        
         dispersion = self.dispersion
         qPath = self.qPath
         qPathParts = self.qPathParts
@@ -295,7 +301,7 @@ class Model:
         if withDOS:
             DOS, bins = self.getDOS(dispersion,
                               binDensity=binDensity,
-                              smoothen=smoothen,
+                              smoothen=smoothenDOS,
                               sigma=sigma,
                               normalize=normalize)
             gridspec_kw = {'hspace':0,
@@ -340,12 +346,18 @@ class Model:
         for tick in tick_locs:
             ax.axvline(tick, color='k', alpha=0.3)
         ax.grid(False)
-
         
+        
+        if withSurfaceModes:
+            ax.plot(self.surfaceDispersion, 
+                    surfaceStyle, 
+                    markersize=surfaceMarkersize)
+
+
+        axDOS.set_xticklabels([])
         if withDOS:
             axDOS.fill_between(DOS, bins[:-1], color='k', alpha=0.5)
             axDOS.set_xlim(0, max(DOS)*1.05)
-            axDOS.set_xticklabels([])
             axDOS.grid(True)
             axDOS.set_title('DOS')
         
@@ -484,6 +496,70 @@ class Model:
         plt.show()
             
         
+        
+    def _isSurfaceMode(self, 
+                       mode, 
+                       weightThreshold, 
+                       numLayers):
+        
+        checkDepth = 3*self.lattice.bulk.atomsPerUnitCell * numLayers
+        absMode = abs(mode)
+        total = sum(absMode)
+        bottomSurfaceWeight = sum(absMode[ : checkDepth]) / total
+        topSurfaceWeight = sum(absMode[-checkDepth : ]) / total
+        
+        surfaceWeight = bottomSurfaceWeight + topSurfaceWeight
+        
+        return surfaceWeight >= weightThreshold
+        
+        
+        
+        
+    def getSurfaceModes(self,
+                        weightThreshold=0.3,
+                        numLayers=3,
+                        save=True):
+        
+        if not hasattr(self.lattice, 'slabCell'):
+            raise AttributeError('Only slab model has surface modes')
+        if not hasattr(self, 'normalModes'):
+            raise AttributeError('No eigenvectors stored')
+        
+        isSurfaceMode = lambda mode: self._isSurfaceMode(mode, 
+                                                         weightThreshold, 
+                                                         numLayers)
+        surfaceModes = []    
+        _surfaceModesInx = []
+        surfaceDispersion = []
+        
+        for qi in range(len(self.qPath)):
+            surfaceModes.append([])
+            _surfaceModesInx.append([])
+            surfaceDispersion.append([])
+            qModes = self.normalModes[qi]
+            
+            for j in range(qModes.shape[0]):
+                mode = qModes[:,j] # recall the modes are the columns of this 2D array
+                
+                if isSurfaceMode(mode):
+                    surfaceModes[qi].append( mode )
+                    _surfaceModesInx[qi].append( j )
+                    surfaceDispersion[qi].append( self.dispersion[qi, j] )
+                else:
+                    surfaceDispersion[qi].append(None)
+                    
+        surfaceModes = np.array(surfaceModes)
+        surfaceDispersion = np.array(surfaceDispersion)
+        
+        if save:
+            self.surfaceModes = surfaceModes
+            self._surfaceModesInx = _surfaceModesInx
+            self.surfaceDispersion = surfaceDispersion
+            
+        return surfaceModes, surfaceDispersion
+            
+            
+            
             
             
         
