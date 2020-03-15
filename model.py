@@ -72,41 +72,19 @@ class Model:
                                  eta)
             self.Z = self.coulomb.Z
             self.C = lambda q: self.coulomb.C(q)
+            self.ZCZ = lambda q: self.Z @ self.C(q) @ self.Z
         else:
             self.withCoulomb=False
         
         self.neighbors = self.rigidIon.neighbors
         self.R = lambda q: self.rigidIon.R(q)
-        self.D = lambda q: self.getDynamicalMatrix(q)
-    
-    
-    def getDynamicalMatrix(self, 
-          q):
-        """
-        Get full dynamical matrix at wavevector q
-
-        Parameters
-        ----------
-        q : array_like
-            Wavevector to calculate dynamical matrix
-
-        Returns
-        -------
-        _D : numpy matrix
-             Full dynamical matrix at wavevector q
-        """
-        q = np.array(q)
-        M = self.M
-        R = self.R
-        modelParts = R(q)
+        
         if self.withCoulomb:
-            modelParts += self.Z @ self.C(q) @ self.Z
-            
-        _D = M @ modelParts @ M
-        
-        return _D
-        
-        
+            self.D = lambda q: self.M @ ( self.R(q) + self.ZCZ(q) ) @ self.M
+        else:
+            self.D = lambda q: self.M @ self.R(q) @ self.M
+    
+     
     
     def getDispersion(self, 
                       qMarkers,
