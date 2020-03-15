@@ -286,7 +286,7 @@ class Model:
                        markersize=5,
                        ylim=[0, None],
                        withSurfaceModes=False,
-                       surfaceStyle='bo',
+                       surfaceStyle='k.',
                        surfaceMarkersize=5,
                        withDOS=True,
                        binDensity=60,
@@ -500,13 +500,50 @@ class Model:
     def _isSurfaceMode(self, 
                        mode, 
                        weightThreshold, 
-                       numLayers):
+                       numLayers,
+                       method='atomic'):
+        """
+        Returns bool whether given mode qualifies as a surface mode.
+
+        Parameters
+        ----------
+        mode : arraylike
+            normal mode array
+        weightThreshold : float
+                        percentage of oscillator weight which must be
+                        within numLayers of surface to qualify as surface mode
+        numLayers : int
+                    Number of unit cells to include in surface
+        method : str, optional
+                Method for calculating oscillator strength.
+                'atomic' - takes the norms of each atom's true oscillation
+                amplitude.
+                'abs' - takes absolute values of normal mode and uses all
+                components in calculation.
+                The default is 'atomic'.
+
+        Returns
+        -------
+        bool
+            Is the mode a surface mode?
+
+        """
         
-        checkDepth = 3*self.lattice.bulk.atomsPerUnitCell * numLayers
-        absMode = abs(mode)
-        total = sum(absMode)
-        bottomSurfaceWeight = sum(absMode[ : checkDepth]) / total
-        topSurfaceWeight = sum(absMode[-checkDepth : ]) / total
+        if method=='abs':
+            checkDepth = 3*self.lattice.bulk.atomsPerUnitCell * numLayers
+            absMode = abs(mode)
+            total = sum(absMode)
+            bottomSurfaceWeight = sum(absMode[ : checkDepth]) / total
+            topSurfaceWeight = sum(absMode[-checkDepth : ]) / total
+            
+        elif method=='atomic':
+            checkDepth = self.lattice.bulk.atomsPerUnitCell * numLayers
+            atomicMotion = [la.norm(mode[i:i+3]) 
+                            for i in range(0, len(mode), 3)]
+            total = sum(atomicMotion)
+            bottomSurfaceWeight = sum(atomicMotion[ : checkDepth]) / total
+            topSurfaceWeight = sum(atomicMotion[ -checkDepth : ]) / total
+            
         
         surfaceWeight = bottomSurfaceWeight + topSurfaceWeight
         
@@ -518,7 +555,38 @@ class Model:
     def getSurfaceModes(self,
                         weightThreshold=0.3,
                         numLayers=3,
+                        method='atomic',
                         save=True):
+        """
+        Gets the surface modes from the already calculated normal modes in the
+        model.
+
+        Parameters
+        ----------
+        weightThreshold : float
+                        Percentage of oscillator weight which must be
+                        within numLayers of surface to qualify as surface mode
+        numLayers : int
+                    Number of unit cells to include in surface
+        method : str, optional
+                Method for calculating oscillator strength.
+                'atomic' - takes the norms of each atom's true oscillation
+                amplitude.
+                'abs' - takes absolute values of normal mode and uses all
+                components in calculation.
+                The default is 'atomic'.
+        save : bool, optional
+                Whether or not to store the determined surface modes/dispersion. 
+                The default is True.
+
+        Returns
+        -------
+        surfaceModes : array
+                        Array containing the surface modes.
+        surfaceDispersion : array
+                            Array containing the surface dispersion
+
+        """
         
         if not hasattr(self.lattice, 'slabCell'):
             raise AttributeError('Only slab model has surface modes')
@@ -527,7 +595,8 @@ class Model:
         
         isSurfaceMode = lambda mode: self._isSurfaceMode(mode, 
                                                          weightThreshold, 
-                                                         numLayers)
+                                                         numLayers,
+                                                         method=method)
         surfaceModes = []    
         _surfaceModesInx = []
         surfaceDispersion = []
@@ -557,7 +626,7 @@ class Model:
             self.surfaceDispersion = surfaceDispersion
             
         return surfaceModes, surfaceDispersion
-            
+                
             
             
             

@@ -548,6 +548,7 @@ class Slab(Crystal):
         return fractional_coords
     
     
+    
     def getSlabCouplingArray(self, 
                               couplingArray):
         """
