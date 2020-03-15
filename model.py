@@ -430,7 +430,7 @@ class Model:
             qMarkers = [np.array(q)+qz for q in surfaceMarkers]
             results = self.getDispersion(qMarkers,
                                          pointDensity,
-                                         getEigenvectors=False,
+                                         getNormalModes=False,
                                          keepCoulomb=False,
                                          showProgress=False,
                                          save=False)

@@ -476,17 +476,21 @@ class Slab(Crystal):
         fullSlabVectors : tuple
                         3-tuple containing the large slab lattice vectors
         """
+        self._numAtomsMovedToBottom = 0
+        # this^ is used to keep atom order in short-range coupling array
+        # consistent with the atom order in slabCell
         slabCell = []
         for lz in range(self.numCells):
             for atom in self.bulk._unitCell:
                 position = atom.coords_cartesian + lz*self.zPrimitive
                 fractional_coords = self._cartToFrac(position)
                 element = atom.element
-                # if atom is at top of slab cell, put it at bottom instead
-                # this prevents a non-Hermitian error
+                # If atom is at top of slab cell, put it at bottom instead
+                # This prevents a Hermiticity error related to the neighbor-finding algorithm
                 if abs(np.round(fractional_coords[2], 9))==1.0:
                     fractional_coords[2] = 0.0
                     slabCell.insert(0, Atom(element, fractional_coords))
+                    self._numAtomsMovedToBottom += 1
                 else:
                     slabCell.append(Atom(element, fractional_coords))
         
@@ -547,7 +551,8 @@ class Slab(Crystal):
     def getSlabCouplingArray(self, 
                               couplingArray):
         """
-        Returns the coupling array for rigid ion phonon calculations. 
+        Returns the coupling array for short-range force contribution to
+        the slab dynamical matrix. 
         
         NOTE: The couplings for the surface are at 'the surface' of the matrix
               i.e. they are on the edge rows and columns
@@ -568,43 +573,22 @@ class Slab(Crystal):
         """
 
         n = self.bulk.atomsPerUnitCell
+        shift = self._numAtomsMovedToBottom
+        # this^ is number of atoms shifted to front of slabCell list
+        # It is needed to keep the atom order consistent between slabCell and
+        # coupling array
+        
         slabCouplings = []
         
         for i in range(self.atomsPerSlabCell):
             slabCouplings.append([])
             for j in range(self.atomsPerSlabCell):
-                slabCouplings[i].append( couplingArray[i%n][j%n] )
-                
+                slabCouplings[i].append( couplingArray[(i + shift)%n][(j+shift)%n] )
+                                
         return slabCouplings
     
      
     
-            
-        
-# %%
-        
-#from latticeDynamics.lattice import Lattice
-
-# =============================================================================
-# a = 6.6
-# latvecs = [(1/2, 1/2, 0) , (1/2, 0, 1/2) , (0, 1/2, 1/2)]
-# unitCell = [('Cd', np.array((0, 0, 0))),
-#           ('Te', np.array((1/4, 1/4, 1/4)))]
-# latvecs = [a*np.array(v) for v in latvecs]
-# lattice = Lattice(unitCell, latvecs)
-# 
-# slab = Slab(lattice, '211', 4)    
-# 
-# planes = slab._getLatticePlanes()    
-# print('Surface Normal:\n',slab.surfaceNormal)
-# print('\nMesh Primitive Vectors:\n', slab.meshPrimitives)
-# print('\nOut of Plane Primitive Vector:\n', slab.zPrimitive)
-# print('\nDistinct Planes:')
-# for v in planes:
-#     print(v)
-# print('\nSlab:')
-# print(slab)
-# slab.getNeighbors(4)
-# =============================================================================
+    
 
 
