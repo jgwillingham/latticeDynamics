@@ -187,7 +187,7 @@ class Coulomb:
                                         Delta_parallel, 
                                         intracell_distance)
             C_ij = C_far + C_near 
-            #C_ij = C_ij + np.eye(3)*4/(3*np.sqrt(np.pi)) # from self-interaction
+            # C_ij = C_ij + np.eye(3)*4/(3*np.sqrt(np.pi)) # from self-interaction
         
         
         return C_ij

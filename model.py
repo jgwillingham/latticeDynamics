@@ -150,10 +150,10 @@ class Model:
                 if showProgress: print('\nCoulomb matrices stored')
                 
             M = self.M
-            self.withCoulomb = False # temporarily set withCoulomb to False
-            DList = [self.D(q) + M @ self.storedCoulomb[str(q)] @ M 
+            R = self.R
+            DList = [M @ ( R(q) + self.storedCoulomb[str(q)] )  @ M
                                              for q in qPath]
-            self.withCoulomb = True # reset withCoulomb to True
+
         else:
             DList = [ self.D(q) for q in qPath ]
             
@@ -521,6 +521,16 @@ class Model:
             total = sum(atomicMotion)
             bottomSurfaceWeight = sum(atomicMotion[ : checkDepth]) / total
             topSurfaceWeight = sum(atomicMotion[ -checkDepth : ]) / total
+        
+        elif method=='prob':
+            M_inv = la.inv(self.M)
+            mode = M_inv @ mode
+            checkDepth = self.lattice.bulk.atomsPerUnitCell * numLayers
+            probabilities = [la.norm(mode[i:i+3])**2 
+                            for i in range(0, len(mode), 3)]
+            total = sum(probabilities)
+            bottomSurfaceWeight = sum(probabilities[ : checkDepth]) / total
+            topSurfaceWeight = sum(probabilities[ -checkDepth : ]) / total
             
         
         surfaceWeight = bottomSurfaceWeight + topSurfaceWeight

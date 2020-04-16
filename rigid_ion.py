@@ -13,8 +13,8 @@ import scipy.linalg as la
 
 class RigidIon:
     """
-    Class containing all functions needed for the rigid ion contributions
-    to the dynamical matrix
+    Class containing all functions needed for the short-range force
+    contributions to the dynamical matrix
     
     Parameters
     ----------
@@ -118,7 +118,7 @@ class RigidIon:
             if neighbor[0][1] == atom_j:
                 bond_ij = neighbor[1]
                 Phi_ij = self._forceConstantMatrix(bond_ij, A, B)
-                R_ij += Phi_ij*np.exp( 1j *q @ bond_ij )
+                R_ij = R_ij + Phi_ij*np.exp( 1j *q @ bond_ij )
                 
         return R_ij
     
@@ -163,6 +163,7 @@ class RigidIon:
              Full block matrix contribution to dynamical matrix from 
              rigid ions.
         """
+        if not isinstance(q, np.ndarray): q = np.array(q)
         n = self.atomsPerUnitCell
         blocks = []
         
