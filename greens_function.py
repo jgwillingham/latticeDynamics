@@ -498,15 +498,15 @@ class GreensFunction:
             
         
         
-    def isoEnergy(self,
+    def isofreq(self,
                   D, 
                   w,
                   qxPath, 
                   qyPath,
                   showProgress=True):
         """
-        Calculates the LDOS on an isoenergy surface over a parallelogram region 
-        of the surface Brillouin zone.
+        Calculates the LDOS on an isofrequency surface over a parallelogram 
+        region of the surface Brillouin zone.
 
         Parameters
         ----------
@@ -545,5 +545,41 @@ class GreensFunction:
         
         return np.array(data)
     
+    
+    
+    def plotIsofreq(self,
+                      isofreq,
+                      cmap='hot',
+                      figsize=(10, 8)):
+        """
+        Plot isofrequency calculation.
+        
+        NOTE : even non-rectangular regions will be plotted as rectangles.
+
+        Parameters
+        ----------
+        isofreq : ndarray
+                  Array containing the results of an isofrequency calculation.
+        cmap : str, optional
+               Matplotlib colormap.
+               The default is 'hot'.
+        figsize : tuple, optional
+                  Figure size. 
+                  The default is (10, 8).
+
+        Returns
+        -------
+        Displays plot
+
+        """
+        
+        iso = isofreq[:,:,0].T[::-1, :]
+        
+        f, ax = plt.subplots(figsize=figsize)
+        ax.imshow(iso,
+                  norm=mpl.colors.LogNorm(iso.min(), iso.max()),
+                  cmap=cmap)
+        plt.show()
+        
     
     
