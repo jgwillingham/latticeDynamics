@@ -9,6 +9,17 @@ import numpy as np
 import scipy.linalg as la
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import warnings
+
+
+# This is used for a warning . It is just for limiting the warning output to
+# just a given string instead of extra information
+def custom_formatwarning(msg, *args, **kwargs):
+    return str(msg) + '\n'
+
+warnings.formatwarning = custom_formatwarning
+
+
 
 
 
@@ -152,6 +163,10 @@ class GreensFunction:
             isTridiagonal = self._checkBlockTridiagonal(blockList)
             if isTridiagonal:
                 break
+        if blockSize > len(matrix)/3:
+            warnings.warn('(!) Slab surface principal layers are interacting. '\
+                          'A larger slab is recommended to '\
+                          'accurately capture bulk principal layers.', Warning)
             
         return blockList
     
@@ -365,7 +380,7 @@ class GreensFunction:
         return conv
     
     
-    def _getplBlockSize(self,
+    def _getPLBlockSize(self,
                         qTest=np.array((0.01, 0.01, 0.01))):
         """
         Get principal layer block size in dynamical matrix
@@ -385,9 +400,9 @@ class GreensFunction:
         
         dynamicalMatrix = self.D( qTest )
         blockList = self._blockTridiag(dynamicalMatrix)        
-        self.plBlockSize = len(blockList[0][0])
+        self.PLBlockSize = len(blockList[0][0])
         
-        return self.plBlockSize
+        return self.PLBlockSize
         
     
     
@@ -434,7 +449,7 @@ class GreensFunction:
         wList = [2*np.pi*f for f in fList]
         
         if not hasattr(self, 'plBlockSize'):
-            self.plBlockSize = self._getplBlockSize()
+            self.PLBlockSize = self._getPLBlockSize()
         
         A_qw = []
         progress=1
@@ -443,7 +458,7 @@ class GreensFunction:
             if showProgress:
                 print(f'\r{progress}/{len(qList)}', end='')
             dynamicalMatrix = self.D(q)
-            blocks = self._blockSplit(dynamicalMatrix, self.plBlockSize)
+            blocks = self._blockSplit(dynamicalMatrix, self.PLBlockSize)
             energy_curve = [self.LDOS(w, blocks, eta, iterNum) 
                                 for w in wList]
             A_qw.append(energy_curve)
