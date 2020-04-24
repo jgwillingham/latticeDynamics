@@ -68,7 +68,7 @@ class Coulomb:
             
             
         if eta == 'default':
-            self.eta = (self._cellVol)**(-1/self.dim)
+            self.eta = 4*(self._cellVol)**(-1/self.dim)
         else:
             self.eta = eta
         self.GList = self._buildList(self._reciprocalVectors,
