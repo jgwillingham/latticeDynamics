@@ -8,6 +8,7 @@ Created on Fri Apr 17 13:34:12 2020
 import numpy as np
 import scipy.linalg as la
 import matplotlib as mpl
+import mpl.pyplot as plt
 
 
 
@@ -409,10 +410,85 @@ class GreensFunction:
         return np.array(A_kw)
     
     
-    
-    def plot(self):
-        pass
-    
+        
+        
+    def plotLDOS(self,
+                 A_kw,
+                 qPathParts,
+                 fList,
+                 qLabels=[],
+                 title='LDOS',
+                 cmap='hot',
+                 markercolor='w',
+                 figsize=(12,8),
+                 numYLabels=5):
+        """
+        Plot a surface spectral function (or LDOS) as calculated by the 
+        spectralFunction method.
+
+        Parameters
+        ----------
+        A_kw : ndarray
+               Array containing the calculated LDOS. 
+               For the i^th wavevector in the BZ path , A_kw[i] should be a 
+               1D array of DOS values for each energy.
+        qPathParts : list
+                     List of separate paths in reicprocal space. This is given
+                     by the buildPath method in the Model class
+        fList : list
+                List of frequencies in THz.
+        qLabels : list, optional
+                  List of strings for names of high symmetry points along 
+                  calculated path. 
+                  The default is [].
+        title : str, optional
+                Title of the plot. 
+                The default is 'LDOS'.
+        cmap : str, optional
+               Name of matplotlib colormap. 
+               The default is 'hot'.
+        markercolor : str, optional
+                      Color of marker lines along path. 
+                      The default is 'w'.
+        figsize : tuple, optional
+                  Figure size. 
+                  The default is (12,8).
+        numYLabels : int, optional
+                     Number of labels on the frequency (Y) axis other than 0. 
+                     The default is 5.
+
+        Returns
+        -------
+        Displays plot
+
+        """
+        
+        A = A_kw.T[::-1, :] # transpose and reverse order of energy lists
+                            # ^this is needed for imshow plotting
+        f, ax = plt.subplots(figsize=figsize)
+        ax.imshow(A, 
+                  aspect='auto',
+                  norm=mpl.colors.LogNorm(A.min(), A.max()),
+                  cmap=cmap)
+        
+        pathLens = [len(path) for path in qPathParts]
+        cumPathLens = [sum(pathLens[:i])-i for i in range(len(pathLens)+1)]
+        
+        ax.set_xticks( cumPathLens )
+        ax.set_xticklabels(qLabels)
+        ax.set_yticks( [0] + [len(fList)*((n+1)/numYLabels) 
+                                 for n in range(numYLabels)])
+        ax.set_yticklabels([np.round(max(fList)*(1-x) + min(fList)*x ,2) 
+                                for x in np.linspace(0, 1, numYLabels+1)])
+        
+        ax.set_ylabel('$\\nu$ (THz)', rotation=0, labelpad=40)
+        ax.set_title(title)
+        
+        for pathPart in cumPathLens[1:-1]:
+            ax.axvline(pathPart, color=markercolor, alpha=0.5)
+            
+        plt.show()
+            
     
     
     
