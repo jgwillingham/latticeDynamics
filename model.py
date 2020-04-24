@@ -350,6 +350,35 @@ class Model:
                sigma=0.05,
                normalize=True
                ):
+        """
+        Finds the relative DOS integrated over the path through the 
+        Brillouin zone.
+
+        Parameters
+        ----------
+        dispersion : list, optional
+                     Dispersion. The default is [].
+        binDensity : int, optional
+                     Density of bins along energy axis. 
+                     The default is 60.
+        smoothen : bool, optional
+                   Bool for whether the DOS should be smoothened or not. 
+                   The default is False.
+        sigma : float, optional
+                Width of gaussian blur used if smoothen==True. 
+                The default is 0.05.
+        normalize : bool, optional
+                    Bool for whether to normalize the determined relative DOS.
+                    The default is True.
+
+        Returns
+        -------
+        histogram : list
+                    List of relative DOS values.
+        bins : list
+               Bins used.
+
+        """
         
         if dispersion==[]: 
             dispersion = self.dispersion
@@ -430,7 +459,7 @@ class Model:
                                 markersize=5,
                                 ylim=[0, None]):
         """
-        Plot the projected dispersion.
+        Plot the bulk projected dispersion.
 
         Parameters
         ----------
@@ -606,7 +635,9 @@ class Model:
         return surfaceModes, surfaceDispersion
                 
             
-            
+    
+    
+    
             
             
         

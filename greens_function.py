@@ -13,9 +13,22 @@ import mpl.pyplot as plt
 
 
 class GreensFunction:
+    """
+    Class containing all necessary methods for surface Green's functions 
+    calculations. The algorithm is the iterative approach described by 
+    Sancho et al. in the paper
     
+    M P Lopez Sancho et al 1985 J. Phys. F: Met. Phys. 15 851
     
-    def __init__(self, dynamicalMatrix):
+    Parameters
+    ----------
+    dynamicalMatrix : function
+                      A callable SLAB dynamical matrix. The full slab is 
+                      
+    """
+    
+    def __init__(self, 
+                 dynamicalMatrix):
         self.D = dynamicalMatrix
         
         
@@ -62,7 +75,6 @@ class GreensFunction:
             blockList.append(row)
         return blockList
             
-
 
 
     def _checkBlockTridiagonal(self,
@@ -135,7 +147,8 @@ class GreensFunction:
             
         return blockList
     
-        
+    
+    
     def _g(self, 
           w, 
           eta, 
@@ -184,14 +197,9 @@ class GreensFunction:
             frequency.
         eta : float
               frequency imaginary part.
-        a_prev : ndarray
-                 alpha as defined in Sancho paper.
-        b_prev : ndarray
-                 beta as defined in Sancho paper.
-        Es_prev : ndarray
-                  Es as defined in Sancho paper.
-        E_prev : ndarray
-                 E as defined in Sancho paper.
+        a_prev, b_prev, Es_prev, E_prev : ndarrays
+                                          Iterated parameters as defined in 
+                                          the Sancho et al. paper.
 
         Returns
         -------
@@ -392,7 +400,7 @@ class GreensFunction:
         # convert from THz
         wList = [2*np.pi*f for f in fList]
         
-        A_kw = []
+        A_qw = []
         progress=1
         for q in qList:
             if showProgress:
@@ -401,19 +409,18 @@ class GreensFunction:
             blocks = self.blockTridiag(dynamical_matrix)
             energy_curve = [self.LDOS(w, blocks, eta, iterNum) 
                                 for w in wList]
-            A_kw.append(energy_curve)
+            A_qw.append(energy_curve)
             progress += 1
         
         if showProgress:
             print('\nDone!')
         
-        return np.array(A_kw)
+        return np.array(A_qw)
     
     
-        
         
     def plotLDOS(self,
-                 A_kw,
+                 A_qw,
                  qPathParts,
                  fList,
                  qLabels=[],
@@ -428,7 +435,7 @@ class GreensFunction:
 
         Parameters
         ----------
-        A_kw : ndarray
+        A_qw : ndarray
                Array containing the calculated LDOS. 
                For the i^th wavevector in the BZ path , A_kw[i] should be a 
                1D array of DOS values for each energy.
@@ -463,7 +470,7 @@ class GreensFunction:
 
         """
         
-        A = A_kw.T[::-1, :] # transpose and reverse order of energy lists
+        A = A_qw.T[::-1, :] # transpose and reverse order of energy lists
                             # ^this is needed for imshow plotting
         f, ax = plt.subplots(figsize=figsize)
         ax.imshow(A, 
@@ -489,6 +496,54 @@ class GreensFunction:
             
         plt.show()
             
+        
+        
+    def isoEnergy(self,
+                  D, 
+                  w,
+                  qxPath, 
+                  qyPath,
+                  showProgress=True):
+        """
+        Calculates the LDOS on an isoenergy surface over a parallelogram region 
+        of the surface Brillouin zone.
+
+        Parameters
+        ----------
+        D : function
+            Callable slab dynamical matrix.
+        w : float
+            frequency to calculate isoenergy (isofrequency) surface.
+        qxPath : ndarray
+                 1D array of wavevectors along bottom edge of parallelogram 
+                 region
+        qyPath : ndarray
+                 1D array of wavevectors along edge of parallelogram which is
+                 not parallel to qxPath values
+                 
+        Returns
+        -------
+        ndarray
+            2D array containing the isoenergy surface values over the desired
+            region.
+        """
+
+        wList = [w]
+        data = []
+        progress = 1
+        for q in qxPath:
+            if showProgress:
+                print(f'\rCut {progress} of {len(qxPath)}', end='')
+            q = np.array(q)
+            ycut = np.array([np.array(qy) + q for qy in qyPath])
+            A_qx = self.spectralFunction(D, ycut, wList, showProgress=False)
+            data.append(A_qx)
+            progress += 1
+            
+        if showProgress:
+            print('\nDone!')
+        
+        return np.array(data)
     
     
     
