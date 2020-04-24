@@ -8,12 +8,13 @@ Created on Sun Feb 23 13:02:58 2020
 
 import numpy as np
 import scipy.linalg as la
+import matplotlib as mpl
 import matplotlib.pyplot as plt
-import matplotlib
 from scipy.ndimage import gaussian_filter1d
 
 from .rigid_ion import RigidIon
 from .coulomb import Coulomb
+from .greens_function import GreensFunction
 
 
 
@@ -45,7 +46,6 @@ class Model:
                 Depth of direct lattice sum in Ewald summation
     eta : float, optional
           The integral-splitting factor for Ewald summation
-          Default is inverse cube root of lattice cell volume
     """
     
     def __init__(self, 
@@ -83,6 +83,8 @@ class Model:
             self.D = lambda q: self.M @ ( self.R(q) + self.ZCZ(q) ) @ self.M
         else:
             self.D = lambda q: self.M @ self.R(q) @ self.M
+        
+        self.G = GreensFunction(self.D)
     
      
     
@@ -307,7 +309,7 @@ class Model:
                   'font.family'      : 'serif',
                   'font.serif'       : "Times New Roman"        
                  }
-        matplotlib.rcParams.update(params)
+        mpl.rcParams.update(params)
     
         ax.plot(dispersion, style, markersize=markersize)
         ax.set_title(title)
@@ -483,7 +485,7 @@ class Model:
                   'font.family'      : 'serif',
                   'font.serif'       : "Times New Roman"        
                  }
-        matplotlib.rcParams.update(params)
+        mpl.rcParams.update(params)
         
         for layer in projectedDispersion:
             _plotLayer = ax.plot(layer, style, markersize=markersize)

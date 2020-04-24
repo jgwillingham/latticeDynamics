@@ -8,7 +8,7 @@ Created on Fri Apr 17 13:34:12 2020
 import numpy as np
 import scipy.linalg as la
 import matplotlib as mpl
-import mpl.pyplot as plt
+import matplotlib.pyplot as plt
 
 
 
@@ -23,7 +23,12 @@ class GreensFunction:
     Parameters
     ----------
     dynamicalMatrix : function
-                      A callable SLAB dynamical matrix. The full slab is 
+                      A callable SLAB dynamical matrix. 
+                      
+    NOTE : Only part of the slab dynamical matrix is used so it is best to 
+    keep the given slab size as small as possible to maximuze performance.
+    The slab only needs to be large enough to capture the surface principal 
+    layer and a single bulk principal layer.
                       
     """
     
@@ -119,7 +124,7 @@ class GreensFunction:
 
 
 
-    def blockTridiag(self, 
+    def _blockTridiag(self, 
                      matrix, 
                      maxBlockSize=60):
         """
@@ -140,7 +145,10 @@ class GreensFunction:
         """
                 
         for blockSize in range(3, maxBlockSize, 3):
-            blockList = self._blockSplit(matrix, blockSize)
+            try:
+                blockList = self._blockSplit(matrix, blockSize)
+            except ValueError:
+                continue
             isTridiagonal = self._checkBlockTridiagonal(blockList)
             if isTridiagonal:
                 break
@@ -357,9 +365,34 @@ class GreensFunction:
         return conv
     
     
+    def _getplBlockSize(self,
+                        qTest=np.array((0.01, 0.01, 0.01))):
+        """
+        Get principal layer block size in dynamical matrix
+
+        Parameters
+        ----------
+        qTest : ndarray, optional
+                Test wavevector to compute dynamical matrix and block
+                tridiagonalize. 
+                The default is np.array((0.01, 0.01, 0.01)).
+
+        Returns
+        -------
+        int
+            Principal layer block size.
+        """
+        
+        dynamicalMatrix = self.D( qTest )
+        blockList = self._blockTridiag(dynamicalMatrix)        
+        self.plBlockSize = len(blockList[0][0])
+        
+        return self.plBlockSize
+        
+    
+    
     
     def spectralFunction(self,
-                          D,
                           qList, 
                           fList, 
                           eta=10**-4, 
@@ -396,17 +429,21 @@ class GreensFunction:
             has a value for each f in fList.
 
         """
-
+        
         # convert from THz
         wList = [2*np.pi*f for f in fList]
         
+        if not hasattr(self, 'plBlockSize'):
+            self.plBlockSize = self._getplBlockSize()
+        
         A_qw = []
         progress=1
+        
         for q in qList:
             if showProgress:
                 print(f'\r{progress}/{len(qList)}', end='')
-            dynamical_matrix = D(q)
-            blocks = self.blockTridiag(dynamical_matrix)
+            dynamicalMatrix = self.D(q)
+            blocks = self._blockSplit(dynamicalMatrix, self.plBlockSize)
             energy_curve = [self.LDOS(w, blocks, eta, iterNum) 
                                 for w in wList]
             A_qw.append(energy_curve)
@@ -499,7 +536,6 @@ class GreensFunction:
         
         
     def isofreq(self,
-                  D, 
                   w,
                   qxPath, 
                   qyPath,
@@ -536,7 +572,7 @@ class GreensFunction:
                 print(f'\rCut {progress} of {len(qxPath)}', end='')
             q = np.array(q)
             ycut = np.array([np.array(qy) + q for qy in qyPath])
-            A_qx = self.spectralFunction(D, ycut, wList, showProgress=False)
+            A_qx = self.spectralFunction(self.D, ycut, wList, showProgress=False)
             data.append(A_qx)
             progress += 1
             
