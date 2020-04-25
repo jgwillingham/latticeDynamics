@@ -448,7 +448,7 @@ class GreensFunction:
         # convert from THz
         wList = [2*np.pi*f for f in fList]
         
-        if not hasattr(self, 'plBlockSize'):
+        if not hasattr(self, 'PLBlockSize'):
             self.PLBlockSize = self._getPLBlockSize()
         
         A_qw = []
