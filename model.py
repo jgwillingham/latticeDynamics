@@ -8,12 +8,13 @@ Created on Sun Feb 23 13:02:58 2020
 
 import numpy as np
 import scipy.linalg as la
+import matplotlib as mpl
 import matplotlib.pyplot as plt
-import matplotlib
 from scipy.ndimage import gaussian_filter1d
 
 from .rigid_ion import RigidIon
 from .coulomb import Coulomb
+from .greens_function import GreensFunction
 
 
 
@@ -45,7 +46,6 @@ class Model:
                 Depth of direct lattice sum in Ewald summation
     eta : float, optional
           The integral-splitting factor for Ewald summation
-          Default is inverse cube root of lattice cell volume
     """
     
     def __init__(self, 
@@ -83,6 +83,8 @@ class Model:
             self.D = lambda q: self.M @ ( self.R(q) + self.ZCZ(q) ) @ self.M
         else:
             self.D = lambda q: self.M @ self.R(q) @ self.M
+        
+        self.G = GreensFunction(self.D)
     
      
     
@@ -307,7 +309,7 @@ class Model:
                   'font.family'      : 'serif',
                   'font.serif'       : "Times New Roman"        
                  }
-        matplotlib.rcParams.update(params)
+        mpl.rcParams.update(params)
     
         ax.plot(dispersion, style, markersize=markersize)
         ax.set_title(title)
@@ -350,6 +352,35 @@ class Model:
                sigma=0.05,
                normalize=True
                ):
+        """
+        Finds the relative DOS integrated over the path through the 
+        Brillouin zone.
+
+        Parameters
+        ----------
+        dispersion : list, optional
+                     Dispersion. The default is [].
+        binDensity : int, optional
+                     Density of bins along energy axis. 
+                     The default is 60.
+        smoothen : bool, optional
+                   Bool for whether the DOS should be smoothened or not. 
+                   The default is False.
+        sigma : float, optional
+                Width of gaussian blur used if smoothen==True. 
+                The default is 0.05.
+        normalize : bool, optional
+                    Bool for whether to normalize the determined relative DOS.
+                    The default is True.
+
+        Returns
+        -------
+        histogram : list
+                    List of relative DOS values.
+        bins : list
+               Bins used.
+
+        """
         
         if dispersion==[]: 
             dispersion = self.dispersion
@@ -430,7 +461,7 @@ class Model:
                                 markersize=5,
                                 ylim=[0, None]):
         """
-        Plot the projected dispersion.
+        Plot the bulk projected dispersion.
 
         Parameters
         ----------
@@ -454,7 +485,7 @@ class Model:
                   'font.family'      : 'serif',
                   'font.serif'       : "Times New Roman"        
                  }
-        matplotlib.rcParams.update(params)
+        mpl.rcParams.update(params)
         
         for layer in projectedDispersion:
             _plotLayer = ax.plot(layer, style, markersize=markersize)
@@ -616,7 +647,9 @@ class Model:
         return surfaceModes, surfaceDispersion
                 
             
-            
+    
+    
+    
             
             
         

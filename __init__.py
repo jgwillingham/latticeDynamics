@@ -11,3 +11,4 @@ from latticeDynamics.rigid_ion import RigidIon
 from latticeDynamics.coulomb import Coulomb
 from latticeDynamics.model import Model
 from latticeDynamics.slab import Slab
+from latticeDynamics.greens_function import GreensFunction
