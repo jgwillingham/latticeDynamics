@@ -587,7 +587,7 @@ class GreensFunction:
                 print(f'\rCut {progress} of {len(qxPath)}', end='')
             q = np.array(q)
             ycut = np.array([np.array(qy) + q for qy in qyPath])
-            A_qx = self.spectralFunction(self.D, ycut, wList, showProgress=False)
+            A_qx = self.spectralFunction(ycut, wList, showProgress=False)
             data.append(A_qx)
             progress += 1
             
@@ -601,11 +601,16 @@ class GreensFunction:
     def plotIsofreq(self,
                       isofreq,
                       cmap='hot',
-                      figsize=(10, 8)):
+                      figsize=(10, 8),
+                      xticks=[],
+                      yticks=[],
+                      xtickLabels=[],
+                      ytickLabels=[]):
         """
         Plot isofrequency calculation.
         
-        NOTE : even non-rectangular regions will be plotted as rectangles.
+        NOTE : even non-rectangular regions will be plotted as rectangles. 
+        This will hopefully be changed in a later version.
 
         Parameters
         ----------
@@ -630,6 +635,10 @@ class GreensFunction:
         ax.imshow(iso,
                   norm=mpl.colors.LogNorm(iso.min(), iso.max()),
                   cmap=cmap)
+        ax.set_xticks(xticks)
+        ax.set_xticklabels(xtickLabels)
+        ax.set_yticks(yticks)
+        ax.set_yticklabels(ytickLabels)
         plt.show()
         
     
