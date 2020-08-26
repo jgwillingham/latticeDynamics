@@ -156,6 +156,25 @@ class Coulomb:
     def _bulkEwald(self,
                    q,
                    intracell_distance):
+        """
+        Given an intracell distance between two atoms , this calculates 
+        the Ewald summation for the bulk crystal at wavevector `q`. 
+        It returns the block of the Coulomb contribution to the dynamical
+        matrix relating the two atoms separated by `intracell_distance`
+
+        Parameters
+        ----------
+        q : arraylike
+            Wavevector to calculate at.
+        intracell_distance : arraylike
+            Intracell distance between two atoms.
+
+        Returns
+        -------
+        C_ij : matrix
+            Block i,j of Coulomb contribution to dynamical matrix.
+
+        """
         
         C_far = self._qSpaceSum(q, 
                                 intracell_distance, 
@@ -172,6 +191,24 @@ class Coulomb:
     def _slabEwald(self,
                    q,
                    intracell_distance):
+        """
+        Given an intracell distance between two atoms , this calculates 
+        the Ewald summation for the slab at wavevector `q`. 
+        It returns the block of the Coulomb contribution to the dynamical
+        matrix relating the two atoms separated by `intracell_distance`
+
+        Parameters
+        ----------
+        q : arraylike
+            Wavevector to calculate at.
+        intracell_distance : arraylike
+            Intracell distance between two atoms.
+
+        Returns
+        -------
+        C_ij : matrix
+            Block i,j of Coulomb contribution to dynamical matrix.
+        """
         Delta_parallel, Delta_normal = self.lattice.projectVector(intracell_distance)
         
         if la.norm(Delta_normal) > 10**-7:
@@ -283,6 +320,25 @@ class Coulomb:
                             q,
                             Delta_parallel,
                             Delta_normal):
+        """
+        Implements part of the slab geometry Ewald summation when the origin 
+        is not in the plane
+
+        Parameters
+        ----------
+        q : arraylike
+            wavevector.
+        Delta_parallel : arraylike
+            component of inter-atomic distance parallel to the slab surfaces.
+        Delta_normal : arraylike
+            component of inter-atomic distance normal to the slab surfaces.
+
+        Returns
+        -------
+        C_ij : matrix
+            block of coulomb contribution to dynamical matrix.
+
+        """
         
         C_ij = np.zeros([3,3], dtype='complex128')
         
