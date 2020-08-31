@@ -148,7 +148,8 @@ class RigidIon:
         
         
     def R(self, 
-          q):
+          q,
+          num_blocks=None):
         """
         Get the full rigid ion matrix at wavevector q
 
@@ -156,6 +157,8 @@ class RigidIon:
         ----------
         q : array_like
             Wavevector where matrix should be calculated
+        num_blocks : int
+            number of atom 3x3 blocks to calculate (used for Green's functions)
 
         Returns
         -------
@@ -164,7 +167,10 @@ class RigidIon:
              rigid ions.
         """
         if not isinstance(q, np.ndarray): q = np.array(q)
-        n = self.atomsPerUnitCell
+        if num_blocks == None:
+            n = self.atomsPerUnitCell
+        else:
+            n = num_blocks
         blocks = []
         
         for i in range(n):

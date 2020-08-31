@@ -91,7 +91,7 @@ class Coulomb:
         q : array_like
             Wavevector where matrix should be calculated
         num_blocks : int
-            Number of atom 3x3 blocks to construct 
+            Number of atom 3x3 blocks to construct (used for Green's functions)
 
         Returns
         -------
