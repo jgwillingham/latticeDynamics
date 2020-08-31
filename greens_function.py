@@ -326,6 +326,7 @@ class GreensFunction:
         G_w = self.greensFunc(w, eta, a, b, Es, E, iterNum)
         
         A = (-1/np.pi)*np.imag(G_w.trace() )
+        # perhaps the trace should be truncated to view different surface depths?
         
         return A
     
@@ -398,7 +399,7 @@ class GreensFunction:
             Principal layer block size.
         """
         
-        dynamicalMatrix = self.D( qTest )
+        dynamicalMatrix = self.D( qTest , 10**9) # 10**9 is just a big number placeholder. 
         blockList = self._blockTridiag(dynamicalMatrix)        
         self.PLBlockSize = len(blockList[0][0])
         
@@ -450,6 +451,8 @@ class GreensFunction:
         
         if not hasattr(self, 'PLBlockSize'):
             self.PLBlockSize = self._getPLBlockSize()
+            
+        n = int(2*self.PLBlockSize)/3 # to get just surface PL and first bulk PL 
         
         A_qw = []
         progress=1
@@ -457,8 +460,8 @@ class GreensFunction:
         for q in qList:
             if showProgress:
                 print(f'\r{progress}/{len(qList)}', end='')
-            dynamicalMatrix = self.D(q)
-            blocks = self._blockSplit(dynamicalMatrix, self.PLBlockSize)
+            dynamicalMatrix_corner = self.D(q, n) # just the necessary blocks
+            blocks = self._blockSplit(dynamicalMatrix_corner, self.PLBlockSize)
             energy_curve = [self.LDOS(w, blocks, eta, iterNum) 
                                 for w in wList]
             A_qw.append(energy_curve)
