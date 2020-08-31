@@ -81,7 +81,8 @@ class Coulomb:
 
 
     def C(self, 
-          q):
+          q,
+          num_blocks=None):
         """
         Get full block Coulomb matrix at wavevector q
 
@@ -89,15 +90,20 @@ class Coulomb:
         ----------
         q : array_like
             Wavevector where matrix should be calculated
+        num_blocks : int
+            Number of atom 3x3 blocks to construct 
 
         Returns
         -------
         _C : numpy matrix
-             Full block Coulomb matrix at wavevector q
+             Full num_block block Coulomb matrix at wavevector q 
         """
 
         q = np.array(q)
-        n = self._atomsPerCell
+        if num_blocks == None:
+            n = self._atomsPerCell
+        else:
+            n = num_blocks
         blocks = []
         
         for i in range(n):
