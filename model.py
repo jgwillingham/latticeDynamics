@@ -84,7 +84,11 @@ class Model:
         else:
             self.D = lambda q: self.M @ self.R(q) @ self.M
         
-        self.G = GreensFunction(self.D)
+        # the functions below allow for truncating the dynamical matrix to 
+        # only those blocks which are needed for the Green's function algorithm
+        self.ZCZ_for_G = lambda q,n: self.Z[:3*n,:3*n] @ self.coulomb.C(q,n) @ self.Z[:3*n,:3*n]
+        self.D_for_G = lambda q,n: self.M[:3*n,:3*n] @ (self.R(q,n) + self.ZCZ_for_G(q,n)) @ self.M[:3*n,:3*n]
+        self.G = GreensFunction(self.D_for_G)
     
      
     
