@@ -82,7 +82,7 @@ class Coulomb:
 
     def C(self, 
           q,
-          num_blocks=None):
+          num_blocks=10**9):
         """
         Get full block Coulomb matrix at wavevector q
 
@@ -92,6 +92,7 @@ class Coulomb:
             Wavevector where matrix should be calculated
         num_blocks : int
             Number of atom 3x3 blocks to construct (used for Green's functions)
+            Default is 10**9 (big enough to always get all blocks)
 
         Returns
         -------
@@ -100,7 +101,7 @@ class Coulomb:
         """
 
         q = np.array(q)
-        if num_blocks == None:
+        if num_blocks == 10**9:
             n = self._atomsPerCell
         else:
             n = num_blocks
