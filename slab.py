@@ -135,7 +135,7 @@ class Slab(Crystal):
                                     np.sign(frac_coords[2]) != -1*sign):
 
                                     neighbors[label_i].append( 
-                                        ( (label_i, label_j) , np.round(bond_ij,9) ) 
+                                        ( (label_i, label_j) , [np.round(bond_ij,9) , latVec ] ) 
                                         )
         self.neighbors = neighbors
   

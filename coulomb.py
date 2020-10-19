@@ -176,12 +176,8 @@ class Coulomb:
 
         """
         
-        C_far = self._qSpaceSum(q, 
-                                intracell_distance, 
-                                intracell_distance)
-        C_near = self._realSpaceSum(q, 
-                                    intracell_distance, 
-                                    intracell_distance)
+        C_far = self._qSpaceSum(q, intracell_distance)
+        C_near = self._realSpaceSum(q, intracell_distance)
         C_ij = C_far + C_near
         
         return C_ij
@@ -209,23 +205,14 @@ class Coulomb:
         C_ij : matrix
             Block i,j of Coulomb contribution to dynamical matrix.
         """
-        Delta_parallel, Delta_normal = self.lattice.projectVector(intracell_distance)
         
         if la.norm(Delta_normal) > 10**-7:
-            C_ij = self._differentPlaneSum(q, 
-                                           Delta_parallel, 
-                                           Delta_normal)
+            C_ij = self._differentPlaneSum(q, intracell_distance)
             
         else:
-            C_far = self._qSpaceSum(q, 
-                                    Delta_parallel, 
-                                    intracell_distance)
-            C_near = self._realSpaceSum(q, 
-                                        Delta_parallel, 
-                                        intracell_distance)
-            C_ij = C_far + C_near 
-            # C_ij = C_ij + np.eye(3)*4/(3*np.sqrt(np.pi)) # from self-interaction
-        
+            C_far = self._qSpaceSum(q, intracell_distance)
+            C_near = self._realSpaceSum(q, intracell_distance)
+            C_ij = C_far + C_near         
         
         return C_ij
             
@@ -234,25 +221,22 @@ class Coulomb:
                  
     def _qSpaceSum(self,
                    q,
-                   Delta,
                    intracell_distance):
         """
         Reciprocal lattice sum in d-dimensional Ewald summation
 
         Parameters
         ----------
-        Delta : array_like
-                Vector pointing between atom locations within unit cell.
         q : array_like
             wavevector
-
+        intracell_distance : array_like
+                             vector pointing between atoms in the unit cell
         Returns
         -------
         Cfar_ij : ndarray
                   2D array containing the reciprocal lattice sum
         """
         d = self.dim
-        Delta = np.array(Delta)
 
         Cfar_ij = np.zeros([3,3], dtype='complex128')
         QGList = [np.array(q+G) for G in self.GList]
@@ -270,8 +254,6 @@ class Coulomb:
             Cfar_ij += term
         
         Cfar_ij = Cfar_ij * (2*np.sqrt(np.pi))**(d-1) / self._cellVol
-        Cfar_ij = Cfar_ij * np.exp(1j * q @ Delta) 
-        
         
         return Cfar_ij
     
@@ -279,18 +261,16 @@ class Coulomb:
     
     def _realSpaceSum(self,
                       q,
-                      Delta,
                       intracell_distance):
         """
         Direct lattice sum in d-dimensional Ewald summation
 
         Parameters
         ----------
-        Delta : array_like
-                Vector pointing between atom locations within unit cell.
         q : array_like
             wavevector
-
+        intracell_distance : array_like
+                Vector pointing between atom locations within unit cell.
         Returns
         -------
         Cfar_ij : 2D array
@@ -310,16 +290,13 @@ class Coulomb:
             term = term * np.exp(1j * q @ (dR - intracell_distance))
             Cnear_ij += term
         
-        Cnear_ij = Cnear_ij * np.exp(1j * q @ Delta)
-        
         return -1*Cnear_ij
     
     
     
     def _differentPlaneSum(self,
                             q,
-                            Delta_parallel,
-                            Delta_normal):
+                            intracell_distance):
         """
         Implements part of the slab geometry Ewald summation when the origin 
         is not in the plane
@@ -328,10 +305,8 @@ class Coulomb:
         ----------
         q : arraylike
             wavevector.
-        Delta_parallel : arraylike
-            component of inter-atomic distance parallel to the slab surfaces.
-        Delta_normal : arraylike
-            component of inter-atomic distance normal to the slab surfaces.
+        intracell_distance : array_like
+                            vector pointing between atoms in the unit cell
 
         Returns
         -------
@@ -339,6 +314,8 @@ class Coulomb:
             block of coulomb contribution to dynamical matrix.
 
         """
+
+        Delta_parallel, Delta_normal = self.lattice.projectVector(intracell_distance)
         
         C_ij = np.zeros([3,3], dtype='complex128')
         
@@ -363,8 +340,8 @@ class Coulomb:
             
             C_ij = C_ij + full_term
         
-        C_ij = C_ij * (2*np.pi/self._cellVol)*np.exp(1j * q @ Delta_parallel)
-        
+        C_ij = C_ij * (2*np.pi/self._cellVol)
+
         return C_ij
     
     

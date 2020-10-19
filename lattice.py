@@ -103,7 +103,7 @@ class Lattice(Crystal):
                             
                             if distance_ij != 0 and distance_ij <= threshold:
                                 neighbors[label_i].append( 
-                                    ( (label_i, label_j) , bond_ij ) 
+                                    ( (label_i, label_j) , [bond_ij , latVec]) 
                                     )
         self.neighbors = neighbors
   

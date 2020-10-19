@@ -75,12 +75,16 @@ class RigidIon:
         e=15.1891
         A *= (e**2 / abs(2*self._cellVolume))
         B *= (e**2 / abs(2*self._cellVolume))
-        
-        for x_i in range(3):
-            for x_j in range(3):
-                Phi[x_i, x_j] = (A - B)*bond_ij[x_i]*bond_ij[x_j] / (la.norm(bond_ij)**2)
-                if x_i == x_j:
-                    Phi[x_i, x_j] += B
+
+
+        Phi = (A-B)*np.outer(bond_ij, bond_ij) / (la.norm(bond_ij)**2)
+        Phi += B*np.eye(3)
+
+        #for x_i in range(3):
+        #    for x_j in range(3):
+        #        Phi[x_i, x_j] = (A - B)*bond_ij[x_i]*bond_ij[x_j] / (la.norm(bond_ij)**2)
+        #        if x_i == x_j:
+        #            Phi[x_i, x_j] += B
                 
         return Phi
         
@@ -116,9 +120,10 @@ class RigidIon:
         
         for neighbor in i_neighbors:
             if neighbor[0][1] == atom_j:
-                bond_ij = neighbor[1]
+                bond_ij = neighbor[1][0] # neighbor is a pair ( (label_i, label_j), [bond_ij, latVec] )
+                latVec = neighbor[1][1]
                 Phi_ij = self._forceConstantMatrix(bond_ij, A, B)
-                R_ij = R_ij + Phi_ij*np.exp( 1j *q @ bond_ij )
+                R_ij = R_ij + Phi_ij*np.exp( 1j *q @ latVec )
                 
         return R_ij
     
