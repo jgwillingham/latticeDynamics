@@ -278,6 +278,9 @@ class Coulomb:
         """
         Cnear_ij = np.zeros([3,3] , dtype='complex128')
         DeltaRList = [R + intracell_distance for R in self.RList]
+
+        if la.norm(intracell_distance) < 10**-9:
+            DeltaRList.append(intracell_distance) # include R=0 term when non-singular
         
         for dR in DeltaRList:
             norm = la.norm(dR)
